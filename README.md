@@ -63,22 +63,3 @@ Read the [contributing guide](https://github.com/continuedev/continue/blob/main/
 ## License
 
 [Apache 2.0 © 2023-2024 Continue Dev, Inc.](./LICENSE)
-
-## 패키징
-
-VSCODE
--- 패키지 빌드하여 vsix 파일 생성
-
-1. 실행전 gui 가 한번이라도 빌드 되어 있어야 함
-   C:\Users\hellf\vscode\continue\gui> npm run build
-2. 패키징
-   C:\Users\hellf\vscode\continue\extensions\vscode> npm run package
-3. 패키징 파일을 이용해서 vscode 플러그인을 설치
-   C:\Users\hellf\vscode\continue\extensions\vscode\build\continue-1.0.7.vsix
-
-IntelliJ
-
-1. 패키징
-   C:\Users\hellf\vscode\continue\extensions\vscode\intellij\gradlew.bat buildPlugin
-2. zip파일이 생성된다
-   C:\Users\hellf\vscode\continue\extensions\intellij\build\distributions\continue-intellij-extension-1.0.13.zip
