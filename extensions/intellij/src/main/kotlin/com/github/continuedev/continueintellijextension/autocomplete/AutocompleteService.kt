@@ -51,18 +51,39 @@ fun Editor.addInlayElement(
 }
 
 @Service(Service.Level.PROJECT)
+/**
+ * AutocompleteService는 에디터에서 자동완성 후보를 관리하고 렌더링하는 서비스입니다.
+ *
+ * 주요 기능:
+ * - 자동완성 트리거 및 후보 요청
+ * - 자동완성 후보 렌더링 및 수락/부분 수락/취소
+ * - 인레이(Inlay) 요소 관리
+ * - IDE의 Lookup(코드 자동완성 팝업)과의 상호작용 처리
+ *
+ * @property pendingCompletion 현재 보류 중인 자동완성 후보 정보
+ * @property lastChangeWasPartialAccept 마지막 변경이 부분 수락이었는지 여부
+ */
+@Service(Service.Level.PROJECT)
 class AutocompleteService(private val project: Project) {
+    /** 현재 보류 중인 자동완성 후보 */
     var pendingCompletion: PendingCompletion? = null
+
+    /** Lookup(IDE 자동완성 팝업) 상태 리스너 */
     private val autocompleteLookupListener = project.service<AutocompleteLookupListener>()
+
+    /** 상태바에 표시되는 로딩 스피너 위젯 */
     private val widget: AutocompleteSpinnerWidget? by lazy {
         WindowManager.getInstance().getStatusBar(project)
             ?.getWidget(AutocompleteSpinnerWidget.ID) as? AutocompleteSpinnerWidget
     }
 
-    // To avoid triggering another completion on partial acceptance,
-    // we need to keep track of whether the last change was a partial accept
+    /** 마지막 변경이 부분 수락(partial accept)이었는지 여부 */
     var lastChangeWasPartialAccept = false
 
+    /**
+     * 자동완성 후보를 트리거합니다.
+     * @param editor 자동완성을 요청할 에디터
+     */
     fun triggerCompletion(editor: Editor) {
         val settings =
             ServiceManager.getService(ContinueExtensionSettings::class.java)
@@ -74,14 +95,13 @@ class AutocompleteService(private val project: Project) {
             clearCompletions(pendingCompletion!!.editor)
         }
 
-        // Set pending completion
+        // 보류 중인 자동완성 후보 설정
         val completionId = uuid()
         val offset = editor.caretModel.primaryCaret.offset
         pendingCompletion = PendingCompletion(editor, offset, completionId, null)
 
-        // Request a completion from the core
+        // core에 자동완성 요청
         val virtualFile = FileDocumentManager.getInstance().getFile(editor.document)
-
         val uri = virtualFile?.toUriOrNull() ?: return
 
         widget?.setLoading(true)
@@ -125,6 +145,9 @@ class AutocompleteService(private val project: Project) {
         )
     }
 
+    /**
+     * 자동완성 후보를 렌더링할지 여부를 판단합니다.
+     */
     private fun shouldRenderCompletion(completion: String, offset: Int, line: Int, editor: Editor): Boolean {
         if (completion.isEmpty() || runReadAction { offset != editor.caretModel.offset }) {
             return false
@@ -136,17 +159,20 @@ class AutocompleteService(private val project: Project) {
 
         val endOffset = editor.document.getLineEndOffset(line)
 
-        // Do not render if completion is multi-line and caret is in middle of line
+        // 멀티라인 자동완성의 경우, 커서가 줄 끝에 있을 때만 렌더링
         return offset <= endOffset && editor.document.getText(TextRange(offset, endOffset)).isBlank()
     }
 
+    /**
+     * 자동완성 텍스트에서 중복되는 부분을 제거합니다.
+     */
     private fun deduplicateCompletion(editor: Editor, offset: Int, completion: String): String {
-        // Check if completion matches the first 10 characters after the cursor
+        // 커서 이후 10글자와 중복되는 부분 제거
         return ApplicationManager.getApplication().runReadAction<String> {
             val document = editor.document
             val caretOffset = editor.caretModel.offset
 
-            // Don't care about it if it's at the end of the document
+            // 문서 끝이면 그대로 반환
             if (caretOffset == document.textLength) return@runReadAction completion
 
             val N = 10
@@ -156,12 +182,11 @@ class AutocompleteService(private val project: Project) {
                 document.getText(TextRange(caretOffset, document.textLength))
             }
 
-            // Avoid truncating the completion text when the text after the cursor is blank
+            // 커서 이후가 공백이면 그대로 반환
             if (textAfterCursor.isBlank()) return@runReadAction completion
 
-            // Determine the index of a newline character within the text following the cursor.
+            // 개행 문자 위치 확인
             val newlineIndex = textAfterCursor.indexOf("\r\n").takeIf { it >= 0 } ?: textAfterCursor.indexOf('\n')
-            // If a newline character is found and the current line is not empty, truncate the text at that point.
             if (newlineIndex > 0) {
                 textAfterCursor = textAfterCursor.substring(0, newlineIndex)
             }
@@ -177,19 +202,22 @@ class AutocompleteService(private val project: Project) {
         }
     }
 
+    /**
+     * 자동완성 후보를 인레이로 렌더링합니다.
+     */
     private fun renderCompletion(editor: Editor, offset: Int, completion: String) {
         if (completion.isEmpty()) {
             return
         }
         if (isInjectedFile(editor)) return
-        // Skip rendering completions if the code completion dropdown is already visible and the IDE completion side-by-side setting is disabled
+        // IDE 자동완성 팝업이 떠 있고, 사이드바이사이드 설정이 꺼져 있으면 렌더링하지 않음
         if (shouldSkipRender(ServiceManager.getService(ContinueExtensionSettings::class.java))) {
             return
         }
 
         ApplicationManager.getApplication().invokeLater {
             WriteAction.run<Throwable> {
-                // Clear existing completions
+                // 기존 자동완성 후보 제거
                 hideCompletions(editor)
 
                 val properties = InlayProperties()
@@ -210,6 +238,9 @@ class AutocompleteService(private val project: Project) {
         }
     }
 
+    /**
+     * 자동완성 후보 전체를 수락합니다.
+     */
     fun accept() {
         val completion = pendingCompletion ?: return
         val text = completion.text ?: return
@@ -230,10 +261,15 @@ class AutocompleteService(private val project: Project) {
         }
     }
 
+    /**
+     * IDE 자동완성 팝업이 떠 있을 때 렌더링을 건너뛸지 여부
+     */
     private fun shouldSkipRender(settings: ContinueExtensionSettings) =
         !settings.continueState.showIDECompletionSideBySide && !autocompleteLookupListener.isLookupEmpty()
 
-
+    /**
+     * 구분자를 포함하여 문자열을 단어 단위로 분리합니다.
+     */
     private fun splitKeepingDelimiters(input: String, delimiterPattern: String = "\\s+"): List<String> {
         val initialSplit = input.split("(?<=$delimiterPattern)|(?=$delimiterPattern)".toRegex())
             .filter { it.isNotEmpty() }
@@ -255,12 +291,14 @@ class AutocompleteService(private val project: Project) {
 
         if (currentDelimiter.isNotEmpty()) {
             result.add(currentDelimiter)
-
         }
 
         return result
     }
 
+    /**
+     * 자동완성 후보의 첫 단어만 수락(부분 수락)합니다.
+     */
     fun partialAccept() {
         val completion = pendingCompletion ?: return
         val text = completion.text ?: return
@@ -269,26 +307,32 @@ class AutocompleteService(private val project: Project) {
 
         lastChangeWasPartialAccept = true
 
-        // Split the text into words, keeping delimiters
+        // 단어 단위로 분리하여 첫 단어만 삽입
         val words = splitKeepingDelimiters(text)
         println(words)
         val word = words[0]
         editor.document.insertString(offset, word)
         editor.caretModel.moveToOffset(offset + word.length)
 
-        // Remove the completion and re-display it
+        // 기존 후보 제거 후, 남은 텍스트로 다시 렌더링
         hideCompletions(editor)
         completion.text = text.substring(word.length)
         completion.offset += word.length
         renderCompletion(editor, completion.offset, completion.text!!)
     }
 
+    /**
+     * 자동완성 후보 요청을 취소합니다.
+     */
     private fun cancelCompletion(completion: PendingCompletion) {
-        // Send cancellation message to core
+        // core에 취소 메시지 전송
         widget?.setLoading(false)
         project.service<ContinuePluginService>().coreMessenger?.request("autocomplete/cancel", null, null, ({}))
     }
 
+    /**
+     * 자동완성 후보 및 인레이를 모두 제거합니다.
+     */
     fun clearCompletions(editor: Editor, completion: PendingCompletion? = pendingCompletion) {
         if (isInjectedFile(editor)) return
 
@@ -299,18 +343,27 @@ class AutocompleteService(private val project: Project) {
         disposeInlayRenderer(editor)
     }
 
+    /**
+     * 인젝션 파일(예: 문자열 리터럴 내 코드) 여부를 확인합니다.
+     */
     private fun isInjectedFile(editor: Editor): Boolean {
         return runReadAction {
             PsiDocumentManager.getInstance(project).getPsiFile(editor.document)?.isInjectedText() ?: false
         }
     }
 
+    /**
+     * 인레이만 제거(자동완성 후보는 유지)
+     */
     fun hideCompletions(editor: Editor) {
         if (isInjectedFile(editor)) return
 
         disposeInlayRenderer(editor)
     }
 
+    /**
+     * 자동완성 인레이 렌더러를 모두 제거합니다.
+     */
     private fun disposeInlayRenderer(editor: Editor) {
         editor.inlayModel.getInlineElementsInRange(0, editor.document.textLength).forEach {
             if (it.renderer is ContinueInlayRenderer) {

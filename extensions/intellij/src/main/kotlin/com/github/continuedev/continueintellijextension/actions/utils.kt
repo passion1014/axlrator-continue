@@ -5,6 +5,10 @@ import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindowManager
 
+/**
+ * 프로젝트에서 ContinuePluginService 인스턴스를 가져오고,
+ * 필요시 "Continue" 툴 윈도우를 활성화합니다.
+ */
 fun getContinuePluginService(project: Project?): ContinuePluginService? {
     if (project != null) {
         val toolWindowManager = ToolWindowManager.getInstance(project)
@@ -20,6 +24,9 @@ fun getContinuePluginService(project: Project?): ContinuePluginService? {
     return getPluginService(project)
 }
 
+/**
+ * Continue 입력창에 포커스를 주고, 선택된 코드를 웹뷰에 전송합니다.
+ */
 fun focusContinueInput(project: Project?) {
     val continuePluginService = getContinuePluginService(project) ?: return
     continuePluginService.continuePluginWindow?.content?.components?.get(0)?.requestFocus()
@@ -28,6 +35,9 @@ fun focusContinueInput(project: Project?) {
     continuePluginService.ideProtocolClient?.sendHighlightedCode()
 }
 
+/**
+ * 프로젝트에서 ContinuePluginService 인스턴스를 반환합니다.
+ */
 fun getPluginService(project: Project?): ContinuePluginService? {
     if (project == null) {
         return null

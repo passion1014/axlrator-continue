@@ -24,6 +24,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import javax.swing.*
 
+// 설정 UI 컴포넌트 클래스
 class ContinueSettingsComponent : DumbAware {
     val panel: JPanel = JPanel(GridBagLayout())
     val remoteConfigServerUrl: JTextField = JTextField()
@@ -43,6 +44,7 @@ class ContinueSettingsComponent : DumbAware {
         constraints.gridx = 0
         constraints.gridy = GridBagConstraints.RELATIVE
 
+        // 각 설정 항목을 패널에 추가
         panel.add(JLabel("Remote Config Server URL:"), constraints)
         constraints.gridy++
         constraints.gridy++
@@ -65,25 +67,28 @@ class ContinueSettingsComponent : DumbAware {
         panel.add(showIDECompletionSideBySide, constraints)
         constraints.gridy++
 
-        // Add a "filler" component that takes up all remaining vertical space
+        // 남은 공간을 채우는 filler 컴포넌트 추가
         constraints.weighty = 1.0
         val filler = JPanel()
         panel.add(filler, constraints)
     }
 }
 
+// 원격 설정 동기화 응답 데이터 클래스
 @Serializable
 class ContinueRemoteConfigSyncResponse {
     var configJson: String? = null
     var configJs: String? = null
 }
 
+// 플러그인 설정 상태 저장 및 동기화 서비스
 @State(
     name = "com.github.continuedev.continueintellijextension.services.ContinueExtensionSettings",
     storages = [Storage("ContinueExtensionSettings.xml")]
 )
 open class ContinueExtensionSettings : PersistentStateComponent<ContinueExtensionSettings.ContinueState> {
 
+    // 실제 저장되는 설정 값들
     class ContinueState {
         var lastSelectedInlineEditModel: String? = null
         var shownWelcomeDialog: Boolean = false
@@ -102,10 +107,12 @@ open class ContinueExtensionSettings : PersistentStateComponent<ContinueExtensio
 
     private var remoteSyncFuture: ScheduledFuture<*>? = null
 
+    // 상태 반환
     override fun getState(): ContinueState {
         return continueState
     }
 
+    // 상태 로드
     override fun loadState(state: ContinueState) {
         continueState = state
     }
@@ -115,14 +122,12 @@ open class ContinueExtensionSettings : PersistentStateComponent<ContinueExtensio
             get() = ServiceManager.getService(ContinueExtensionSettings::class.java)
     }
 
-
-    // Sync remote config from server
+    // 원격 서버에서 설정 동기화
     private fun syncRemoteConfig() {
         val state = instance.continueState
 
         if (state.remoteConfigServerUrl != null && state.remoteConfigServerUrl!!.isNotEmpty()) {
-            // download remote config as json file
-
+            // 원격 설정을 json 파일로 다운로드
             val client = OkHttpClient()
             val baseUrl = state.remoteConfigServerUrl?.removeSuffix("/")
 
@@ -154,11 +159,13 @@ open class ContinueExtensionSettings : PersistentStateComponent<ContinueExtensio
                 return
             }
 
+            // configJson 저장
             if (configResponse?.configJson?.isNotEmpty()!!) {
                 val file = File(getConfigJsonPath(request.url.host))
                 file.writeText(configResponse!!.configJson!!)
             }
 
+            // configJs 저장
             if (configResponse?.configJs?.isNotEmpty()!!) {
                 val file = File(getConfigJsPath(request.url.host))
                 file.writeText(configResponse!!.configJs!!)
@@ -166,7 +173,7 @@ open class ContinueExtensionSettings : PersistentStateComponent<ContinueExtensio
         }
     }
 
-    // Create a scheduled task to sync remote config every `remoteConfigSyncPeriod` minutes
+    // 주기적으로 원격 설정 동기화 작업 예약
     fun addRemoteSyncJob() {
 
         if (remoteSyncFuture != null) {
@@ -183,6 +190,7 @@ open class ContinueExtensionSettings : PersistentStateComponent<ContinueExtensio
     }
 }
 
+// 설정 변경 이벤트 리스너 인터페이스
 interface SettingsListener {
     fun settingsUpdated(settings: ContinueExtensionSettings.ContinueState)
 
@@ -191,6 +199,7 @@ interface SettingsListener {
     }
 }
 
+// 설정 패널과 실제 설정 값 동기화 및 적용을 담당하는 Configurable 구현체
 class ContinueExtensionConfigurable : Configurable {
     private var mySettingsComponent: ContinueSettingsComponent? = null
 
@@ -199,6 +208,7 @@ class ContinueExtensionConfigurable : Configurable {
         return mySettingsComponent!!.panel
     }
 
+    // UI와 저장된 설정 값이 다른지 확인
     override fun isModified(): Boolean {
         val settings = ContinueExtensionSettings.instance
         val modified =
@@ -212,6 +222,7 @@ class ContinueExtensionConfigurable : Configurable {
         return modified
     }
 
+    // UI에서 변경된 값을 실제 설정에 반영
     override fun apply() {
         val settings = ContinueExtensionSettings.instance
         settings.continueState.remoteConfigServerUrl = mySettingsComponent?.remoteConfigServerUrl?.text
@@ -223,11 +234,13 @@ class ContinueExtensionConfigurable : Configurable {
         settings.continueState.showIDECompletionSideBySide =
             mySettingsComponent?.showIDECompletionSideBySide?.isSelected ?: false
 
+        // 설정 변경 이벤트 발행
         ApplicationManager.getApplication().messageBus.syncPublisher(SettingsListener.TOPIC)
             .settingsUpdated(settings.continueState)
         ContinueExtensionSettings.instance.addRemoteSyncJob()
     }
 
+    // 저장된 설정 값을 UI에 반영
     override fun reset() {
         val settings = ContinueExtensionSettings.instance
         mySettingsComponent?.remoteConfigServerUrl?.text = settings.continueState.remoteConfigServerUrl
@@ -273,6 +286,7 @@ class ContinueExtensionConfigurable : Configurable {
  * We use the branchNumber (e.g., 233) instead of the full version number (e.g., 2023.3.4) because
  * it's a simple integer without dot notation, making it easier to compare.
  */
+// 오프스크린 렌더링 사용 여부 판단 함수
 private fun shouldRenderOffScreen(): Boolean {
     val minBuildNumber = 233
     val applicationInfo = ApplicationInfo.getInstance()

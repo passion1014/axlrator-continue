@@ -8,17 +8,20 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
 
 
+// Diff를 수락하는 액션 클래스
 class AcceptDiffAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
-        acceptHorizontalDiff(e)
-        acceptVerticalDiff(e)
+        acceptHorizontalDiff(e) // 수평 Diff 수락
+        acceptVerticalDiff(e)   // 수직 Diff 수락
     }
 
+    // 수평 Diff를 수락하는 메서드
     private fun acceptHorizontalDiff(e: AnActionEvent) {
         val continuePluginService = getPluginService(e.project) ?: return
         continuePluginService.diffManager?.acceptDiff(null)
     }
 
+    // 수직 Diff를 수락하는 메서드
     private fun acceptVerticalDiff(e: AnActionEvent) {
         val project = e.project ?: return
         val editor =
@@ -28,17 +31,20 @@ class AcceptDiffAction : AnAction() {
     }
 }
 
+// Diff를 거부하는 액션 클래스
 class RejectDiffAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
-        rejectHorizontalDiff(e)
-        rejectVerticalDiff(e)
+        rejectHorizontalDiff(e) // 수평 Diff 거부
+        rejectVerticalDiff(e)   // 수직 Diff 거부
     }
 
+    // 수평 Diff를 거부하는 메서드
     private fun rejectHorizontalDiff(e: AnActionEvent) {
         val continuePluginService = getPluginService(e.project) ?: return
         continuePluginService.diffManager?.rejectDiff(null)
     }
 
+    // 수직 Diff를 거부하는 메서드
     private fun rejectVerticalDiff(e: AnActionEvent) {
         val project = e.project ?: return
         val editor =
@@ -49,6 +55,7 @@ class RejectDiffAction : AnAction() {
 }
 
 
+// 선택된 코드를 컨텍스트에 추가(입력창 포커스, 채팅 초기화 없이)
 class FocusContinueInputWithoutClearAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project
@@ -56,6 +63,7 @@ class FocusContinueInputWithoutClearAction : AnAction() {
     }
 }
 
+// 선택된 코드를 컨텍스트에 추가(입력창 포커스, 채팅 초기화)
 class FocusContinueInputAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val continuePluginService = getContinuePluginService(e.project) ?: return
@@ -67,6 +75,7 @@ class FocusContinueInputAction : AnAction() {
     }
 }
 
+// 새로운 세션을 시작하는 액션 클래스
 class NewContinueSessionAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val continuePluginService = getContinuePluginService(e.project) ?: return
@@ -75,6 +84,7 @@ class NewContinueSessionAction : AnAction() {
     }
 }
 
+// 히스토리 뷰로 이동하는 액션 클래스
 class ViewHistoryAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val continuePluginService = getContinuePluginService(e.project) ?: return
@@ -83,6 +93,7 @@ class ViewHistoryAction : AnAction() {
     }
 }
 
+// 설정 페이지로 이동하는 액션 클래스
 class OpenConfigAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val continuePluginService = getContinuePluginService(e.project) ?: return
@@ -92,6 +103,7 @@ class OpenConfigAction : AnAction() {
     }
 }
 
+// 로그 파일을 여는 액션 클래스
 class OpenLogsAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return

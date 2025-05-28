@@ -1,4 +1,4 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<!-- 플러그인 구성 파일입니다. 자세한 내용은 https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html 참고 -->
 <idea-plugin>
     <id>com.github.continuedev.continueintellijextension</id>
     <name>Continue</name>
@@ -16,11 +16,14 @@
     <!-- com.intellij.openapi.module.ModuleManager.Companion is only available since this build -->
     <idea-version since-build="223.7571.182"/>
 
+    <!-- 에디터 팩토리 리스너 등록 -->
     <extensions defaultExtensionNs="com.intellij">
         <editorFactoryListener
                 implementation="com.github.continuedev.continueintellijextension.autocomplete.AutocompleteEditorListener"/>
+        <!-- 툴 윈도우 등록 -->
         <toolWindow id="Continue" anchor="right" icon="/tool-window-icon.svg"
                     factoryClass="com.github.continuedev.continueintellijextension.toolWindow.ContinuePluginToolWindowFactory"/>
+        <!-- 프로젝트 서비스 등록 -->
         <projectService id="ContinuePluginService"
                         serviceImplementation="com.github.continuedev.continueintellijextension.services.ContinuePluginService"/>
         <projectService
@@ -29,17 +32,24 @@
         <projectService
                 id="AutocompleteLookupListener"
                 serviceImplementation="com.github.continuedev.continueintellijextension.autocomplete.AutocompleteLookupListener"/>
+        <!-- 상태바 위젯 팩토리 등록 -->
         <statusBarWidgetFactory
                 implementation="com.github.continuedev.continueintellijextension.autocomplete.AutocompleteSpinnerWidgetFactory"
                 id="AutocompleteSpinnerWidget"/>
+        <!-- 알림 그룹 등록 -->
         <notificationGroup id="Continue"
                            displayType="BALLOON"/>
+        <!-- 액션 프로모터 등록 -->
         <actionPromoter order="last"
                         implementation="com.github.continuedev.continueintellijextension.actions.ContinueActionPromote"/>
     </extensions>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
+    <!--
+        이 확장 섹션은 플러그인 시작 시 실행되는 postStartupActivity,
+        설정 페이지(applicationConfigurable), 그리고 애플리케이션 서비스(applicationService)를 등록합니다.
+    -->
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity
                 implementation="com.github.continuedev.continueintellijextension.activities.ContinuePluginStartupActivity"/>
@@ -53,6 +63,7 @@
     </extensions>
 
     <actions>
+        <!-- 선택한 코드 인라인 편집 액션 -->
         <action class="com.github.continuedev.continueintellijextension.editor.InlineEditAction"
                 id="continue.inlineEdit"
                 description="Inline Edit"
@@ -64,6 +75,7 @@
             <override-text place="GoToAction" text="Continue: Edit Code"/>
         </action>
 
+        <!-- Diff 변경사항 수락 액션 -->
         <action id="continue.acceptDiff"
                 class="com.github.continuedev.continueintellijextension.actions.AcceptDiffAction"
                 text="Accept Diff" description="Accept Diff">
@@ -74,6 +86,7 @@
             <override-text place="GoToAction" text="Continue: Accept Diff"/>
         </action>
 
+        <!-- Diff 변경사항 거부 액션 -->
         <action id="continue.rejectDiff"
                 class="com.github.continuedev.continueintellijextension.actions.RejectDiffAction"
                 text="Reject Diff" description="Reject Diff">
@@ -84,6 +97,7 @@
             <override-text place="GoToAction" text="Continue: Reject Diff"/>
         </action>
 
+        <!-- 세로 Diff 블록 수락 액션 -->
         <action id="continue.acceptVerticalDiffBlock"
                 class="com.github.continuedev.continueintellijextension.actions.AcceptDiffAction"
                 text="Accept Diff" description="Accept Vertical Diff Block">
@@ -94,6 +108,7 @@
             <override-text place="GoToAction" text="Continue: Accept Vertical Diff Block"/>
         </action>
 
+        <!-- 세로 Diff 블록 거부 액션 -->
         <action id="continue.rejectVerticalDiffBlock"
                 class="com.github.continuedev.continueintellijextension.actions.RejectDiffAction"
                 text="Reject Diff" description="Reject Vertical Diff Block">
@@ -104,6 +119,7 @@
             <override-text place="GoToAction" text="Continue: Reject Vertical Diff Block"/>
         </action>
 
+        <!-- 선택한 코드 컨텍스트에 추가(채팅 초기화 없이) 액션 -->
         <action id="continue.focusContinueInputWithoutClear"
                 class="com.github.continuedev.continueintellijextension.actions.FocusContinueInputWithoutClearAction"
                 text="Add selected code to context"
@@ -115,6 +131,7 @@
             <override-text place="GoToAction" text="Continue: Add Highlighted Code to Context"/>
         </action>
 
+        <!-- 새 Continue 세션 생성 액션 -->
         <action id="continue.newContinueSession"
                 icon="AllIcons.General.Add"
                 class="com.github.continuedev.continueintellijextension.actions.NewContinueSessionAction"
@@ -124,6 +141,7 @@
             <override-text place="GoToAction" text="New Session"/>
         </action>
 
+        <!-- 히스토리 보기 액션 -->
         <action id="continue.viewHistory"
                 icon="AllIcons.Vcs.History"
                 class="com.github.continuedev.continueintellijextension.actions.ViewHistoryAction"
@@ -132,6 +150,7 @@
             <override-text place="GoToAction" text="View History"/>
         </action>
 
+        <!-- 설정 페이지 열기 액션 -->
         <action id="continue.openConfigPage"
                 class="com.github.continuedev.continueintellijextension.actions.OpenConfigAction"
                 icon="AllIcons.General.GearPlain"
@@ -140,6 +159,7 @@
             <override-text place="GoToAction" text="Continue Config"/>
         </action>
 
+        <!-- 로그 보기 액션 -->
         <action id="continue.openLogs"
                 class="com.github.continuedev.continueintellijextension.actions.OpenLogsAction"
                 icon="AllIcons.General.ShowInfos"
@@ -148,12 +168,14 @@
             <override-text place="GoToAction" text="Open Continue Logs"/>
         </action>
 
+        <!-- 사이드바 액션 그룹 -->
         <group id="ContinueSidebarActionsGroup">
             <reference ref="continue.newContinueSession"/>
             <reference ref="continue.viewHistory"/>
             <reference ref="continue.openConfigPage"/>
         </group>
 
+        <!-- 선택한 코드 컨텍스트에 추가(채팅 초기화 포함) 액션 -->
         <action id="continue.focusContinueInput"
                 class="com.github.continuedev.continueintellijextension.actions.FocusContinueInputAction"
                 text="Add selected code to context"
@@ -166,6 +188,7 @@
             <override-text place="GoToAction" text="Continue: Add Highlighted Code to Context and Clear Chat"/>
         </action>
 
+        <!-- 자동완성 제안 수락 액션 -->
         <action id="com.github.continuedev.continueintellijextension.autocomplete.AcceptAutocompleteAction"
                 class="com.github.continuedev.continueintellijextension.autocomplete.AcceptAutocompleteAction"
                 text="Accept Autocomplete Suggestion" description="Accept Autocomplete Suggestion">
@@ -173,12 +196,14 @@
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="TAB"/>
         </action>
 
+        <!-- 자동완성 제안 취소 액션 -->
         <action id="com.github.continuedev.continueintellijextension.autocomplete.CancelAutocompleteAction"
                 class="com.github.continuedev.continueintellijextension.autocomplete.CancelAutocompleteAction"
                 text="Cancel Autocomplete Suggestion" description="Cancel Autocomplete Suggestion">
             <keyboard-shortcut keymap="$default" first-keystroke="ESCAPE"/>
         </action>
 
+        <!-- 자동완성 제안 부분 수락 액션 -->
         <action id="com.github.continuedev.continueintellijextension.autocomplete.PartialAcceptAutocompleteAction"
                 class="com.github.continuedev.continueintellijextension.autocomplete.PartialAcceptAutocompleteAction"
                 text="Partial Accept Autocomplete Suggestion"

@@ -15,6 +15,10 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.URLConnection
 
+/**
+ * CustomSchemeHandlerFactory는 CEF(Crimean Embedded Framework)에서 커스텀 스킴 요청을 처리하기 위한 팩토리 클래스입니다.
+ * create 메서드는 각 요청마다 CustomResourceHandler 인스턴스를 반환합니다.
+ */
 class CustomSchemeHandlerFactory : CefSchemeHandlerFactory {
     override fun create(
         browser: CefBrowser?,
@@ -26,9 +30,17 @@ class CustomSchemeHandlerFactory : CefSchemeHandlerFactory {
     }
 }
 
+/**
+ * CustomResourceHandler는 CEF에서 리소스 요청을 처리하는 핸들러입니다.
+ * 요청된 URL을 내부 리소스 경로로 변환하여 응답을 제공합니다.
+ */
 class CustomResourceHandler : CefResourceHandler, DumbAware {
     private var state: ResourceHandlerState = ClosedConnection
     private var currentUrl: String? = null
+
+    /**
+     * 요청을 처리하고, 리소스가 존재하면 연결을 오픈합니다.
+     */
     override fun processRequest(
         cefRequest: CefRequest,
         cefCallback: CefCallback
@@ -46,6 +58,9 @@ class CustomResourceHandler : CefResourceHandler, DumbAware {
         }
     }
 
+    /**
+     * 응답 헤더를 설정합니다. MIME 타입은 URL에 따라 결정됩니다.
+     */
     override fun getResponseHeaders(
         cefResponse: CefResponse,
         responseLength: IntRef,
@@ -63,6 +78,9 @@ class CustomResourceHandler : CefResourceHandler, DumbAware {
         state.getResponseHeaders(cefResponse, responseLength, redirectUrl)
     }
 
+    /**
+     * 응답 데이터를 읽어 바이트 배열에 씁니다.
+     */
     override fun readResponse(
         dataOut: ByteArray,
         bytesToRead: Int,
@@ -72,12 +90,19 @@ class CustomResourceHandler : CefResourceHandler, DumbAware {
         return state.readResponse(dataOut, bytesToRead, bytesRead, callback)
     }
 
+    /**
+     * 요청을 취소하고 연결을 닫습니다.
+     */
     override fun cancel() {
         state.close()
         state = ClosedConnection
     }
 }
 
+/**
+ * ResourceHandlerState는 리소스 핸들러의 상태를 나타내는 sealed 클래스입니다.
+ * 각 상태별로 응답 헤더, 데이터 읽기, 연결 닫기 동작을 정의합니다.
+ */
 sealed class ResourceHandlerState {
     open fun getResponseHeaders(
         cefResponse: CefResponse,
@@ -97,6 +122,10 @@ sealed class ResourceHandlerState {
 }
 
 
+/**
+ * OpenedConnection은 리소스 연결이 열린 상태를 나타냅니다.
+ * 실제 데이터 스트림을 통해 응답을 제공합니다.
+ */
 class OpenedConnection(private val connection: URLConnection?) :
     ResourceHandlerState() {
 
@@ -104,6 +133,10 @@ class OpenedConnection(private val connection: URLConnection?) :
         connection?.inputStream
     }
 
+    /**
+     * 연결이 열려 있을 때 응답 헤더를 설정합니다.
+     * MIME 타입은 리소스 경로에 따라 결정됩니다.
+     */
     override fun getResponseHeaders(
         cefResponse: CefResponse,
         responseLength: IntRef,
@@ -112,8 +145,7 @@ class OpenedConnection(private val connection: URLConnection?) :
         try {
             if (connection != null) {
                 val fullUrl = connection.url.toString()
-                // Extract only the resource path after the JAR prefix to prevent incorrect mime type matching
-                // (e.g., if a user's home folder contains "js" in the path)
+                // JAR prefix 이후의 경로만 추출하여 올바른 MIME 타입을 결정
                 val url = fullUrl.substringAfterLast("jar!/", fullUrl)
                 when {
                     url.contains("css") -> cefResponse.mimeType = "text/css"
@@ -124,7 +156,7 @@ class OpenedConnection(private val connection: URLConnection?) :
                 responseLength.set(inputStream?.available() ?: 0)
                 cefResponse.status = 200
             } else {
-                // Handle the case where connection is null
+                // 연결이 null인 경우 에러 처리
                 cefResponse.error = CefLoadHandler.ErrorCode.ERR_FAILED
                 cefResponse.statusText = "Connection is null"
                 cefResponse.status = 500
@@ -136,7 +168,9 @@ class OpenedConnection(private val connection: URLConnection?) :
         }
     }
 
-
+    /**
+     * 데이터 스트림에서 데이터를 읽어 응답합니다.
+     */
     override fun readResponse(
         dataOut: ByteArray,
         bytesToRead: Int,
@@ -157,11 +191,18 @@ class OpenedConnection(private val connection: URLConnection?) :
         } ?: false
     }
 
+    /**
+     * 연결을 닫습니다.
+     */
     override fun close() {
         inputStream?.close()
     }
 }
 
+/**
+ * ClosedConnection은 연결이 닫힌 상태를 나타냅니다.
+ * 모든 요청에 대해 404 상태를 반환합니다.
+ */
 object ClosedConnection : ResourceHandlerState() {
     override fun getResponseHeaders(
         cefResponse: CefResponse,

@@ -10,7 +10,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.JBColor
 import java.awt.Color
 import java.awt.Font
-
+// 이 클래스는 EditorLinePainter를 상속하여 에디터의 각 라인에 확장 정보를 추가할 수 있습니다.
 class ContinueEditorLinePainter : EditorLinePainter() {
     override fun getLineExtensions(project: Project, file: VirtualFile, lineNumber: Int): MutableCollection<LineExtensionInfo>? {
         return null

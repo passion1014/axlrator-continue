@@ -82,27 +82,33 @@ private fun getTutorialFileName(): String {
     }
 }
 
+// 플러그인 시작 시 실행되는 StartupActivity 구현체
 class ContinuePluginStartupActivity : StartupActivity, DumbAware {
 
+    // 플러그인 시작 시 호출되는 메서드
     override fun runActivity(project: Project) {
+        // 단축키 충돌 방지: 기존 단축키 제거
         removeShortcutFromAction(getPlatformSpecificKeyStroke("J"))
         removeShortcutFromAction(getPlatformSpecificKeyStroke("shift J"))
         removeShortcutFromAction(getPlatformSpecificKeyStroke("I"))
+        // 플러그인 초기화
         initializePlugin(project)
     }
 
+    // OS에 따라 플랫폼별 단축키 문자열 반환
     private fun getPlatformSpecificKeyStroke(key: String): String {
         val osName = System.getProperty("os.name").toLowerCase()
         val modifier = if (osName.contains("mac")) "meta" else "control"
         return "$modifier $key"
     }
 
+    // 지정한 단축키가 Continue 액션에 할당되어 있지 않으면 해당 단축키를 제거
     private fun removeShortcutFromAction(shortcut: String) {
         val keymap = KeymapManager.getInstance().activeKeymap
         val keyStroke = KeyStroke.getKeyStroke(shortcut)
         val actionIds = keymap.getActionIds(keyStroke)
 
-        // If Continue has been re-assigned to another key, don't remove the shortcut
+        // Continue로 시작하는 액션이 아니면 제거하지 않음
         if (!actionIds.any { it.startsWith("continue") }) {
             return
         }
@@ -120,6 +126,7 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
         }
     }
 
+    // 플러그인 초기화 로직
     private fun initializePlugin(project: Project) {
         val coroutineScope = CoroutineScope(Dispatchers.IO)
         val continuePluginService = ServiceManager.getService(
@@ -128,16 +135,19 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
         )
 
         coroutineScope.launch {
+            // 설정 서비스 가져오기
             val settings =
                 ServiceManager.getService(ContinueExtensionSettings::class.java)
+            // 웰컴 다이얼로그가 표시되지 않았다면 튜토리얼 파일 오픈
             if (!settings.continueState.shownWelcomeDialog) {
                 settings.continueState.shownWelcomeDialog = true
-                // Open tutorial file
                 showTutorial(project)
             }
 
+            // 원격 동기화 작업 추가
             settings.addRemoteSyncJob()
 
+            // IDE 프로토콜 클라이언트 및 Diff 매니저 생성
             val ideProtocolClient = IdeProtocolClient(
                 continuePluginService,
                 coroutineScope,
@@ -149,7 +159,7 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
             continuePluginService.diffManager = diffManager
             continuePluginService.ideProtocolClient = ideProtocolClient
 
-            // Listen to changes to settings so the core can reload remote configuration
+            // 설정 변경 리스너 등록
             val connection = ApplicationManager.getApplication().messageBus.connect()
             connection.subscribe(SettingsListener.TOPIC, object : SettingsListener {
                 override fun settingsUpdated(settings: ContinueExtensionSettings.ContinueState) {
@@ -163,24 +173,22 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                 }
             })
 
-            // Handle file changes and deletions - reindex
+            // 파일 시스템 변경 리스너 등록 (삭제, 변경, 생성)
             connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
-                    // Collect all relevant URIs for deletions
+                    // 삭제된 파일 URI 수집 및 전송
                     val deletedURIs = events.filterIsInstance<VFileDeleteEvent>()
                         .mapNotNull { event -> event.file.toUriOrNull() }
 
-                    // Send "files/deleted" message if there are any deletions
                     if (deletedURIs.isNotEmpty()) {
                         val data = mapOf("uris" to deletedURIs)
                         continuePluginService.coreMessenger?.request("files/deleted", data, null) { _ -> }
                     }
 
-                    // Collect all relevant URIs for content changes
+                    // 변경된 파일 URI 수집 및 전송
                     val changedURIs = events.filterIsInstance<VFileContentChangeEvent>()
                         .mapNotNull { event -> event.file.toUriOrNull() }
 
-                    // Notify core of content changes
                     if (changedURIs.isNotEmpty()) {
                         continuePluginService.updateLastFileSaveTimestamp()
 
@@ -188,6 +196,7 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                         continuePluginService.coreMessenger?.request("files/changed", data, null) { _ -> }
                     }
 
+                    // 생성된 파일 URI 수집 및 전송
                     events.filterIsInstance<VFileCreateEvent>()
                         .mapNotNull { event -> event.file?.toUriOrNull() }
                         .takeIf { it.isNotEmpty() }?.let {
@@ -195,11 +204,11 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                             continuePluginService.coreMessenger?.request("files/created", data, null) { _ -> }
                         }
 
-                    // TODO: Missing handling of copying files, renaming files, etc.
+                    // TODO: 파일 복사, 이름 변경 등 추가 처리 필요
                 }
             })
 
-
+            // 파일 에디터 열기/닫기 리스너 등록
             connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
                 override fun fileClosed(source: FileEditorManager, file: VirtualFile) {
                     file.toUriOrNull()?.let { uri ->
@@ -216,8 +225,7 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                 }
             })
 
-
-            // Listen for theme changes
+            // 테마 변경 리스너 등록
             connection.subscribe(LafManagerListener.TOPIC, LafManagerListener {
                 val colors = GetTheme().getTheme();
                 continuePluginService.sendToWebview(
@@ -226,10 +234,11 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                 )
             })
 
-            // Listen for clicking settings button to start the auth flow
+            // 인증 서비스 및 세션 정보 로드
             val authService = service<ContinueAuthService>()
             val initialSessionInfo = authService.loadControlPlaneSessionInfo()
 
+            // 세션 정보가 있으면 core에 전달
             if (initialSessionInfo != null) {
                 val data = mapOf(
                     "sessionInfo" to initialSessionInfo
@@ -237,6 +246,7 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                 continuePluginService.coreMessenger?.request("didChangeControlPlaneSessionInfo", data, null) { _ -> }
             }
 
+            // 인증 관련 리스너 등록
             connection.subscribe(AuthListener.TOPIC, object : AuthListener {
                 override fun startAuthFlow() {
                     authService.startAuthFlow(project, false)
@@ -254,12 +264,13 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                 }
             })
 
+            // 선택 리스너 등록
             val listener =
                 ContinuePluginSelectionListener(
                     coroutineScope,
                 )
 
-            // Reload the WebView
+            // 워크스페이스 경로 설정 (최상위 모듈만)
             continuePluginService?.let { pluginService ->
                 val allModulePaths = ModuleManager.getInstance(project).modules
                     .flatMap { module -> ModuleRootManager.getInstance(module).contentRoots.mapNotNull { it.toUriOrNull() } }
@@ -270,13 +281,16 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                 pluginService.workspacePaths = topLevelModulePaths.toTypedArray()
             }
 
+            // 에디터 선택 리스너 등록
             EditorFactory.getInstance().eventMulticaster.addSelectionListener(
                 listener,
                 ContinuePluginDisposable.getInstance(project)
             )
 
+            // CoreMessengerManager 등록
             val coreMessengerManager = CoreMessengerManager(project, ideProtocolClient, coroutineScope)
             continuePluginService.coreMessengerManager = coreMessengerManager
         }
     }
+
 }

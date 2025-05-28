@@ -23,6 +23,17 @@ enum class DiffLineType {
     SAME, NEW, OLD
 }
 
+/**
+ * DiffStreamHandler는 에디터에서 diff 스트림을 처리하고, diff 블록을 관리하며,
+ * diff 라인에 따라 에디터의 하이라이트, diff 블록 생성/수정/삭제, 상태 업데이트 등을 담당합니다.
+ *
+ * 주요 기능:
+ * - diff 라인 타입(SAME, NEW, OLD)에 따라 에디터에 diff를 실시간으로 반영
+ * - diff 블록의 수락/거부 처리 및 위치 업데이트
+ * - diff 스트림의 상태를 외부(웹뷰 등)에 전송
+ * - 에디터의 하이라이트 및 UI 요소 관리
+ * - diff 스트림의 완료 및 취소 처리
+ */
 class DiffStreamHandler(
     private val project: Project,
     private val editor: Editor,
@@ -33,6 +44,9 @@ class DiffStreamHandler(
     private val streamId: String?,
     private val toolCallId: String?
 ) {
+    /**
+     * 현재 라인 상태를 나타내는 데이터 클래스
+     */
     private data class CurLineState(
         var index: Int, var highlighter: RangeHighlighter? = null, var diffBlock: VerticalDiffBlock? = null
     )
@@ -45,11 +59,14 @@ class DiffStreamHandler(
     private val continuePluginService = ServiceManager.getService(project, ContinuePluginService::class.java)
     private val virtualFile = FileDocumentManager.getInstance().getFile(editor.document)
 
-
     init {
+        // 미완성 라인 하이라이트 초기화
         initUnfinishedRangeHighlights()
     }
 
+    /**
+     * diff 상태를 외부(웹뷰 등)에 전송
+     */
     private fun sendUpdate(status: ApplyStateStatus) {
         if (streamId == null) {
             return
@@ -68,12 +85,18 @@ class DiffStreamHandler(
         continuePluginService.sendToWebview("updateApplyState", payload)
     }
 
+    /**
+     * 모든 diff 블록을 수락
+     */
     fun acceptAll() {
         ApplicationManager.getApplication().invokeLater {
             diffBlocks.toList().forEach { it.handleAccept() }
         }
     }
 
+    /**
+     * 모든 diff 블록을 거부 또는 변경사항 전체 undo
+     */
     fun rejectAll() {
         // The ideal action here is to undo all changes we made to return the user's edit buffer to the state prior
         // to our changes. However, if the user has accepted or rejected one or more diff blocks, there isn't a simple
@@ -91,6 +114,9 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * diff 라인 스트림을 에디터에 반영
+     */
     fun streamDiffLinesToEditor(
         input: String,
         prefix: String,
@@ -129,6 +155,9 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * 미완성 라인 하이라이트 초기화
+     */
     private fun initUnfinishedRangeHighlights() {
         val editorUtils = EditorUtils(editor)
         val unfinishedKey = editorUtils.createTextAttributesKey("CONTINUE_DIFF_UNFINISHED_LINE", 0x20888888)
@@ -143,6 +172,9 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * diff 라인 타입에 따라 처리
+     */
     private fun handleDiffLine(type: DiffLineType, text: String) {
         try {
             when (type) {
@@ -163,6 +195,9 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * diff 블록 수락/거부 시 상태 및 위치 업데이트
+     */
     private fun handleDiffBlockAcceptOrReject(diffBlock: VerticalDiffBlock, didAccept: Boolean) {
         hasAcceptedOrRejectedBlock = true
 
@@ -183,7 +218,9 @@ class DiffStreamHandler(
         }
     }
 
-
+    /**
+     * diff 블록 생성
+     */
     private fun createDiffBlock(): VerticalDiffBlock {
         val diffBlock = VerticalDiffBlock(
             editor, project, curLine.index, ::handleDiffBlockAcceptOrReject
@@ -193,6 +230,9 @@ class DiffStreamHandler(
         return diffBlock
     }
 
+    /**
+     * SAME 라인 처리
+     */
     private fun handleSameLine() {
         if (curLine.diffBlock != null) {
             curLine.diffBlock!!.onLastDiffLine()
@@ -203,6 +243,9 @@ class DiffStreamHandler(
         curLine.index++
     }
 
+    /**
+     * NEW 라인 처리
+     */
     private fun handleNewLine(text: String) {
         if (curLine.diffBlock == null) {
             curLine.diffBlock = createDiffBlock()
@@ -213,6 +256,9 @@ class DiffStreamHandler(
         curLine.index++
     }
 
+    /**
+     * OLD 라인 처리
+     */
     private fun handleOldLine() {
         if (curLine.diffBlock == null) {
             curLine.diffBlock = createDiffBlock()
@@ -221,11 +267,14 @@ class DiffStreamHandler(
         curLine.diffBlock!!.deleteLineAt(curLine.index)
     }
 
+    /**
+     * 현재 라인 및 미완성 하이라이트 갱신
+     */
     private fun updateProgressHighlighters(type: DiffLineType) {
         val editorUtils = EditorUtils(editor)
         val curLineKey = editorUtils.createTextAttributesKey("CONTINUE_DIFF_CURRENT_LINE", 0x40888888)
 
-        // Update the highlighter to show the current line
+        // 현재 라인 하이라이트 갱신
         curLine.highlighter?.let { editor.markupModel.removeHighlighter(it) }
         curLine.highlighter = editor.markupModel.addLineHighlighter(
             curLineKey, min(curLine.index, max(0, editor.document.lineCount - 1)), HighlighterLayer.LAST
@@ -233,21 +282,30 @@ class DiffStreamHandler(
 
         editorUtils.scrollToLine(curLine.index)
 
-        // Remove the unfinished lines highlighter
+        // 미완성 라인 하이라이트 제거
         if (type != DiffLineType.OLD && unfinishedHighlighters.isNotEmpty()) {
             editor.markupModel.removeHighlighter(unfinishedHighlighters.removeAt(0))
         }
     }
 
+    /**
+     * diff 블록 수락 시 위치 업데이트
+     */
     private fun updatePositionsOnAccept(startLine: Int) {
         updatePositions(startLine, 0)
     }
 
+    /**
+     * diff 블록 거부 시 위치 업데이트
+     */
     private fun updatePositionsOnReject(startLine: Int, numAdditions: Int, numDeletions: Int) {
         val offset = -numAdditions + numDeletions
         updatePositions(startLine, offset)
     }
 
+    /**
+     * diff 블록 위치 일괄 업데이트
+     */
     private fun updatePositions(startLine: Int, offset: Int) {
         diffBlocks.forEach { block ->
             if (block.startLine > startLine) {
@@ -256,21 +314,26 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * 상태 및 에디터 UI 초기화
+     */
     private fun resetState() {
-        // Clear the editor of highlighting/inlays
+        // 에디터 하이라이트/인레이 제거
         editor.markupModel.removeAllHighlighters()
         diffBlocks.forEach { it.clearEditorUI() }
 
-        // Clear state vars
+        // 상태 변수 초기화
         diffBlocks.clear()
         curLine = CurLineState(startLine)
         isRunning = false
 
-        // Close the Edit input if editing
+        // 편집 입력 종료
         onClose()
     }
 
-
+    /**
+     * 변경사항 전체 undo
+     */
     private fun undoChanges() {
         if (virtualFile == null) {
             return
@@ -290,6 +353,9 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * diff 스트림 완료 처리
+     */
     private fun handleFinishedResponse() {
         ApplicationManager.getApplication().invokeLater {
             // Since we only call onLastDiffLine() when we reach a "same" line, we need to handle the case where
@@ -307,12 +373,17 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * 하이라이트 정리
+     */
     private fun cleanupProgressHighlighters() {
         curLine.highlighter?.let { editor.markupModel.removeHighlighter(it) }
         unfinishedHighlighters.forEach { editor.markupModel.removeHighlighter(it) }
     }
 
-
+    /**
+     * diff 라인 응답 처리
+     */
     private fun handleDiffLineResponse(parsed: Map<*, *>) {
         val data = parsed["content"] as Map<*, *>
         val diffLineType = getDiffLineType(data["type"] as String)
@@ -325,6 +396,9 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * 문자열 타입을 DiffLineType으로 변환
+     */
     private fun getDiffLineType(type: String): DiffLineType {
         return when (type) {
             "same" -> DiffLineType.SAME
@@ -334,6 +408,9 @@ class DiffStreamHandler(
         }
     }
 
+    /**
+     * diff 스트림 종료 및 상태 갱신
+     */
     private fun setClosed() {
         sendUpdate(ApplyStateStatus.CLOSED)
         resetState()

@@ -18,18 +18,27 @@ import java.awt.event.MouseEvent
 import javax.swing.Icon
 import javax.swing.JLabel
 
+/**
+ * 상태바에 표시되는 자동완성 스피너 위젯 클래스입니다.
+ * 자동완성 로딩 상태를 애니메이션 아이콘으로 표시합니다.
+ */
 class AutocompleteSpinnerWidget(project: Project) : EditorBasedWidget(project), StatusBarWidget.IconPresentation,
     Disposable {
     private val iconLabel = JLabel()
     private var isLoading = false
     
+    // 로딩 애니메이션 아이콘
     private val animatedIcon = AnimatedIcon.Default()
 
     init {
+        // 플러그인 종료 시 위젯도 함께 dispose
         Disposer.register(ContinuePluginDisposable.getInstance(project), this)
         updateIcon()
     }
 
+    /**
+     * 위젯을 표시합니다.
+     */
     fun show() {
         println("Showing autocomplete spinner widget")
     }
@@ -40,6 +49,9 @@ class AutocompleteSpinnerWidget(project: Project) : EditorBasedWidget(project), 
         return ID
     }
 
+    /**
+     * 툴팁 텍스트를 반환합니다.
+     */
     override fun getTooltipText(): String {
         val enabled = service<ContinueExtensionSettings>().state.enableTabAutocomplete
         return if (enabled) "Continue autocomplete enabled" else "Continue autocomplete disabled"
@@ -49,19 +61,27 @@ class AutocompleteSpinnerWidget(project: Project) : EditorBasedWidget(project), 
         return null
     }
 
+    /**
+     * 현재 상태에 따라 아이콘을 반환합니다.
+     */
     override fun getIcon(): Icon = if (isLoading) animatedIcon else
         IconLoader.getIcon("/icons/continue.svg", javaClass)
 
+    /**
+     * 로딩 상태를 설정하고 아이콘을 갱신합니다.
+     */
     fun setLoading(loading: Boolean) {
         isLoading = loading
         updateIcon()
     }
 
+    /**
+     * 아이콘을 갱신하고 상태바에 반영합니다.
+     */
     private fun updateIcon() {
         iconLabel.icon = getIcon()
 
-
-        // Update the widget
+        // 상태바 위젯 갱신
         val statusBar = WindowManager.getInstance().getStatusBar(project)
         statusBar?.updateWidget(ID())
     }
@@ -79,7 +99,13 @@ class AutocompleteSpinnerWidget(project: Project) : EditorBasedWidget(project), 
     }
 }
 
+/**
+ * 상태바에 AutocompleteSpinnerWidget을 생성하는 팩토리 클래스입니다.
+ */
 class AutocompleteSpinnerWidgetFactory : StatusBarWidgetFactory {
+    /**
+     * AutocompleteSpinnerWidget 인스턴스를 생성합니다.
+     */
     fun create(project: Project): AutocompleteSpinnerWidget {
         return AutocompleteSpinnerWidget(project)
     }

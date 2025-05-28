@@ -20,13 +20,27 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.TextEditor
 
+/**
+ * 에디터에서 선택 영역이 변경될 때 툴팁을 표시하거나 제거하는 리스너입니다.
+ *
+ * - 선택 영역이 변경되면 debounce 후 handleSelection을 호출합니다.
+ * - 파일 에디터가 아닐 경우, 또는 선택 영역이 없거나 설정에 따라 툴팁을 제거합니다.
+ * - 전체 파일 선택 시 에디터를 스크롤하여 툴팁이 보이도록 합니다.
+ * - 선택 영역의 위치와 내용에 따라 툴팁의 위치를 계산하여 표시합니다.
+ */
 class ContinuePluginSelectionListener(
     coroutineScope: CoroutineScope,
 ) : SelectionListener, DumbAware {
+    /**
+     * 선택 이벤트 처리 디바운서
+     */
     private val debouncer = Debouncer(100, coroutineScope)
     private var toolTipComponents: ArrayList<ToolTipComponent> = ArrayList()
     private var lastActiveEditor: Editor? = null
 
+    /**
+     * 선택 영역이 변경될 때 호출됩니다.
+     */
     override fun selectionChanged(e: SelectionEvent) {
         if (e.editor.isDisposed || e.editor.project?.isDisposed == true) {
             return
@@ -35,6 +49,9 @@ class ContinuePluginSelectionListener(
         debouncer.debounce { handleSelection(e) }
     }
 
+    /**
+     * 모든 툴팁을 제거합니다.
+     */
     private fun removeAllTooltips() {
         ApplicationManager.getApplication().invokeLater {
             toolTipComponents.forEach { tooltip ->
@@ -44,7 +61,9 @@ class ContinuePluginSelectionListener(
         }
     }
 
-
+    /**
+     * 선택 이벤트를 처리합니다.
+     */
     private fun handleSelection(e: SelectionEvent) {
         ApplicationManager.getApplication().invokeLater {
             val editor = e.editor
@@ -54,7 +73,7 @@ class ContinuePluginSelectionListener(
                 return@invokeLater
             }
 
-            // Fixes a bug where the tooltip isn't being disposed of when opening new files
+            // 파일이 바뀌면 기존 툴팁 제거
             if (editor != lastActiveEditor) {
                 removeAllTooltips()
                 lastActiveEditor = editor
@@ -72,27 +91,36 @@ class ContinuePluginSelectionListener(
         }
     }
 
+    /**
+     * 에디터가 파일 에디터인지 확인합니다.
+     */
     private fun isFileEditor(editor: Editor): Boolean {
         val project = editor.project ?: return false
         val virtualFile = FileDocumentManager.getInstance().getFile(editor.document)
 
-        // Check if the file exists and is not in-memory only
+        // 파일이 존재하고 로컬 파일 시스템에 있는지 확인
         if (virtualFile == null || !virtualFile.isInLocalFileSystem) {
             return false
         }
 
-        // Check if the editor is not associated with a console
+        // 콘솔이 아닌지 확인
         val fileEditorManager = FileEditorManager.getInstance(project)
         val fileEditor = fileEditorManager.getSelectedEditor(virtualFile)
 
         return fileEditor is TextEditor
     }
 
+    /**
+     * 툴팁을 제거해야 하는지 여부를 반환합니다.
+     */
     private fun shouldRemoveTooltip(selectedText: String?, editor: Editor): Boolean {
         return selectedText.isNullOrEmpty() ||
                 !service<ContinueExtensionSettings>().continueState.displayEditorTooltip
     }
 
+    /**
+     * 기존 툴팁을 제거합니다.
+     */
     private fun removeExistingTooltips(editor: Editor, onComplete: () -> Unit = {}) {
         ApplicationManager.getApplication().invokeLater {
             toolTipComponents.forEach {
@@ -105,17 +133,20 @@ class ContinuePluginSelectionListener(
         }
     }
 
+    /**
+     * 툴팁을 갱신합니다.
+     */
     private fun updateTooltip(editor: Editor, model: SelectionModel) {
         removeExistingTooltips(editor) {
             ApplicationManager.getApplication().invokeLater {
                 val document = editor.document
                 val (startLine, endLine, isFullLineSelection) = getSelectionInfo(model, document)
 
-                // Check if entire file is selected
+                // 전체 파일이 선택된 경우
                 val isEntireFileSelected = model.selectionStart == 0 &&
                         model.selectionEnd == document.textLength
 
-                // Scroll to top if entire file selected so that the user can see the input
+                // 전체 파일 선택 시 스크롤을 맨 위로 이동
                 if (isEntireFileSelected) {
                     editor.scrollingModel.scrollTo(
                         LogicalPosition(0, 0),
@@ -133,6 +164,9 @@ class ContinuePluginSelectionListener(
         }
     }
 
+    /**
+     * 선택 영역의 시작/끝 라인 및 전체 라인 선택 여부를 반환합니다.
+     */
     private fun getSelectionInfo(model: SelectionModel, document: Document): Triple<Int, Int, Boolean> {
         val startOffset = model.selectionStart
         val endOffset = model.selectionEnd
@@ -148,6 +182,9 @@ class ContinuePluginSelectionListener(
         return Triple(startLine, adjustedEndLine, isFullLineSelection)
     }
 
+    /**
+     * 선택 영역의 Y 좌표(상단)를 계산합니다.
+     */
     private fun calculateSelectionTopY(
         editor: Editor,
         startLine: Int,
@@ -162,6 +199,9 @@ class ContinuePluginSelectionListener(
         }
     }
 
+    /**
+     * 툴팁의 X 좌표를 계산합니다.
+     */
     private fun calculateTooltipX(
         editor: Editor,
         document: Document,
@@ -185,41 +225,44 @@ class ContinuePluginSelectionListener(
 
         val offset = 40
 
-        // If only one line is selected and it's empty, return null
+        // 한 줄만 선택되고 그 줄이 비어있으면 null 반환
         if (startLine == endLine && isLineEmpty(startLine) && !isFullLineSelection) {
             return null
         }
 
-        // Find the topmost non-empty line within the selection
+        // 선택 영역 내에서 가장 위에 있는 비어있지 않은 라인 찾기
         var topNonEmptyLine = startLine
         while (topNonEmptyLine <= endLine && isLineEmpty(topNonEmptyLine)) {
             topNonEmptyLine++
         }
 
-        // If all lines in the selection are empty, return null
+        // 선택 영역이 모두 비어있으면 null 반환
         if (topNonEmptyLine > endLine) {
             return null
         }
 
-        // Always display inline if the selection is a single line
+        // 한 줄 선택 또는 전체 라인 선택 시
         if (isFullLineSelection || startLine == endLine) {
             return getLineEndX(topNonEmptyLine) + offset
         }
 
-        // Check the line above the start of the selection (if it exists)
+        // 선택 영역 위의 라인 좌표 계산
         val lineAboveSelection = maxOf(0, startLine - 1)
 
-        // Get x-coordinates
+        // x 좌표 계산
         val xCoordTopNonEmpty = getLineEndX(topNonEmptyLine)
         val xCoordLineAbove = getLineEndX(lineAboveSelection)
 
-        // Use the maximum of the two x-coordinates
+        // 두 좌표 중 큰 값 사용
         val baseXCoord = maxOf(xCoordTopNonEmpty, xCoordLineAbove)
 
-        // Calculate the final x-coordinate
+        // 최종 x 좌표 반환
         return baseXCoord + offset
     }
 
+    /**
+     * 툴팁 컴포넌트를 에디터에 추가합니다.
+     */
     private fun addToolTipComponent(editor: Editor, tooltipX: Int, selectionTopY: Int) {
         val toolTipComponent = ToolTipComponent(editor, tooltipX, selectionTopY)
         toolTipComponents.add(toolTipComponent)
