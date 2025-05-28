@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * AutocompleteLookupListener는 LookupManager의 상태 변화를 감지하여
- * 자동완성 후보와 Lookup(코드 자동완성 팝업) 간의 상호작용을 관리합니다.
+ * 자동완성 후보와 Lookup(코드 자동완성 팝업 '.'키 누르면 나오는 코드제안 팝업) 간의 상호작용을 관리합니다.
  *
  * - Lookup이 표시되면 자동완성 후보를 숨깁니다.
  * - Lookup이 취소되거나 항목이 선택되면 자동완성 후보를 다시 표시할 수 있도록 상태를 변경합니다.
