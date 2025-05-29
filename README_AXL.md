@@ -4,13 +4,11 @@ CTRL + SHIFT + P 누르면 tasks: run task 실행
 
 ## 폴더 설명
 
-binary: core의 tyscript code를 바이너리로 패키징.
-
-> esbuild == 타입스크립트를 자바스크립트로 트랜스코딩, pkg == 자바스크립트를 바이너리로 빌드
-> docs: 문서 서버
-> extensions: vscode, intelliJ 플러그인(extension) 패키징
-> gui: 채팅등 WEB UI 인터페이스를 위한 리액트 앱
-> scripts: 디펜던시 설치 스크립트
+binary: core의 tyscript code를 바이너리로 패키징
+docs: 문서 서버
+extensions: vscode, intelliJ 플러그인(extension) 패키징
+gui: 채팅등 WEB UI 인터페이스를 위한 리액트 앱
+scripts: 디펜던시 설치 스크립트
 
 ## VSCODE 패키징
 
@@ -26,7 +24,7 @@ binary: core의 tyscript code를 바이너리로 패키징.
 ## IntelliJ 패키징
 
 1. 패키징
-   C:\Users\hellf\vscode\axlrator-continue\extensions\intellij> gradlew.bat buildPlugin
+   C:\Users\hellf\vscode\axlrator-continue\extensions\intellij>.\gradlew.bat buildPlugin
 2. zip파일이 생성된다
    C:\Users\hellf\vscode\axlrator-continue\extensions\intellij\build\distributions\continue-intellij-extension-1.0.13.zip
 
