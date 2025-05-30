@@ -11,6 +11,9 @@ interface FileInfo {
   imports: { [key: string]: RangeInFileWithContents[] };
 }
 
+/**
+ * ImportDefinitionsService는 현재 파일의 import 정의를 관리하는 서비스입니다.
+ */
 export class ImportDefinitionsService {
   static N = 10;
 
