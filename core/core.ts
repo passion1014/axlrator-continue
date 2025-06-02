@@ -73,11 +73,25 @@ export class Core {
   private globalContext = new GlobalContext();
   llmLogger = new LLMLogger();
 
+  /**
+   * IDE의 전역 컨텍스트를 관리합니다.
+   * IDE 설정, 프로필, 조직 등을 포함합니다.
+   */
   private readonly indexingPauseToken = new PauseToken(
     this.globalContext.get("indexingPaused") === true,
   );
 
+  /**
+   * 메시지 ID로 AbortController를 관리하는 Map입니다.
+   * 메시지 전송 중에 취소할 수 있도록 합니다.
+   */
   private messageAbortControllers = new Map<string, AbortController>();
+
+  /**
+   * 메시지 ID로 AbortController를 추가합니다.
+   * @param id 메시지 ID
+   * @returns AbortController
+   */
   private addMessageAbortController(id: string): AbortController {
     const controller = new AbortController();
     this.messageAbortControllers.set(id, controller);
@@ -86,10 +100,22 @@ export class Core {
     });
     return controller;
   }
+
+  /**
+   * 메시지 ID로 AbortController를 추가합니다.
+   * @param messageId 메시지 ID
+   * @returns AbortController
+   */
   private abortById(messageId: string) {
     this.messageAbortControllers.get(messageId)?.abort();
   }
 
+  /**
+   * 메시지를 전송합니다.
+   * @param messageType 메시지 유형
+   * @param data 메시지 데이터
+   * @returns 메시지 ID
+   */
   invoke<T extends keyof ToCoreProtocol>(
     messageType: T,
     data: ToCoreProtocol[T][0],
@@ -97,6 +123,13 @@ export class Core {
     return this.messenger.invoke(messageType, data);
   }
 
+  /**
+   * 메시지를 전송하고 응답을 기다립니다.
+   * @param messageType 메시지 유형
+   * @param data 메시지 데이터
+   * @param messageId 선택적 메시지 ID
+   * @returns 메시지 ID
+   */
   send<T extends keyof FromCoreProtocol>(
     messageType: T,
     data: FromCoreProtocol[T][0],
@@ -105,8 +138,8 @@ export class Core {
     return this.messenger.send(messageType, data, messageId);
   }
 
-  // TODO: It shouldn't actually need an IDE type, because this can happen
-  // through the messenger (it does in the case of any non-VS Code IDEs already)
+  // TODO: 실제로는 IDE 타입이 필요하지 않아야 합니다.
+  // 이 작업은 메신저를 통해 발생할 수 있습니다(실제로 VS Code가 아닌 IDE의 경우 이미 그렇게 동작합니다).
   constructor(
     private readonly messenger: IMessenger<ToCoreProtocol, FromCoreProtocol>,
     private readonly ide: IDE,
@@ -140,10 +173,16 @@ export class Core {
       this.messenger,
     );
 
+    /**
+     * IDE의 전역 컨텍스트를 초기화합니다.
+     */
     MCPManagerSingleton.getInstance().onConnectionsRefreshed = async () => {
       await this.configHandler.reloadConfig();
     };
 
+    /**
+     * IDE 설정을 로드하고, 초기화합니다.
+     */
     this.configHandler.onConfigUpdate(async (result) => {
       const serializedResult = await this.configHandler.getSerializedConfig();
       this.messenger.send("configUpdate", {
@@ -181,6 +220,9 @@ export class Core {
       (resolve) => (continueServerClientResolve = resolve),
     );
 
+    /**
+     * IDE 설정을 로드하고, ContinueServerClient와 CodebaseIndexer를 초기화합니다.
+     */
     void ideSettingsPromise.then((ideSettings) => {
       const continueServerClient = new ContinueServerClient(
         ideSettings.remoteConfigServerUrl,
@@ -214,6 +256,9 @@ export class Core {
       });
     });
 
+    /**
+     * @returns 선택된 LLM 모델을 반환합니다.
+     */
     const getLlm = async () => {
       const { config } = await this.configHandler.loadConfig();
       if (!config) {
@@ -221,6 +266,7 @@ export class Core {
       }
       return config.selectedModelByRole.autocomplete ?? undefined;
     };
+
     this.completionProvider = new CompletionProvider(
       this.configHandler,
       ide,
@@ -233,6 +279,10 @@ export class Core {
   }
 
   /* eslint-disable max-lines-per-function */
+  /**
+   *  메시지 핸들러를 등록합니다.
+   * @param ideSettingsPromise
+   */
   private registerMessageHandlers(ideSettingsPromise: Promise<IdeSettings>) {
     const on = this.messenger.on.bind(this.messenger);
 
@@ -260,6 +310,7 @@ export class Core {
       this.abortById(msg.data ?? msg.messageId);
     });
 
+    // Ping
     on("ping", (msg) => {
       if (msg.data !== "ping") {
         throw new Error("ping message incorrect");
@@ -292,6 +343,7 @@ export class Core {
       void DataLogger.getInstance().logDevData(msg.data);
     });
 
+    // Config
     on("config/addModel", (msg) => {
       const model = msg.data.model;
       addModel(model, msg.data.role);
@@ -751,6 +803,11 @@ export class Core {
     );
   }
 
+  /**
+   * 주어진 컨텍스트 아이템이 현재 LLM에 비해 너무 큰지 확인합니다.
+   * @param item ContextItemWithId
+   * @returns 아이템이 너무 크면 true, 아니면 false를 반환합니다.
+   */
   private async isItemTooBig(item: ContextItemWithId) {
     const { config } = await this.configHandler.loadConfig();
     if (!config) {
@@ -771,6 +828,10 @@ export class Core {
     return false;
   }
 
+  /**
+   * 주어진 디렉토리들에 대해 코드베이스 인덱스를 새로 고칩니다.
+   * @param dirs 인덱스를 새로 고칠 디렉토리들입니다.
+   */
   private handleAddAutocompleteModel(
     msg: Message<{
       model: ModelDescription;
@@ -802,6 +863,10 @@ export class Core {
     void this.configHandler.reloadConfig();
   }
 
+  /**
+   * 주어진 디렉토리들에 대해 코드베이스 인덱스를 새로 고칩니다.
+   * @param uris 인덱스를 새로 고칠 디렉토리들입니다.
+   */
   private async handleFilesChanged({
     data,
   }: Message<{
@@ -860,6 +925,10 @@ export class Core {
     }
   }
 
+  /**
+   * 주어진 디렉토리들에 대해 코드베이스 인덱스를 새로 고칩니다.
+   * @param uris 인덱스를 새로 고칠 디렉토리들입니다.
+   */
   private async handleListModels(msg: Message<{ title: string }>) {
     const { config } = await this.configHandler.loadConfig();
     if (!config) {
@@ -891,6 +960,10 @@ export class Core {
     }
   }
 
+  /**
+   * 주어진 디렉토리들에 대해 코드베이스 인덱스를 새로 고칩니다.
+   * @param uris 인덱스를 새로 고칠 디렉토리들입니다.
+   */
   private async handleCompleteOnboarding(msg: Message<{ mode: string }>) {
     const mode = msg.data.mode;
 
@@ -923,6 +996,11 @@ export class Core {
     void this.configHandler.reloadConfig();
   }
 
+  /**
+   * 주어진 메시지에 대한 컨텍스트 아이템을 가져옵니다.
+   * @param msg 메시지 객체입니다.
+   * @returns 컨텍스트 아이템의 배열입니다.
+   */
   private getContextItems = async (
     msg: Message<{
       name: string;
@@ -1024,7 +1102,16 @@ export class Core {
     }
   };
 
+  /**
+   * 인덱싱 취소 컨트롤러입니다.
+   * 인덱싱 작업을 취소할 때 사용됩니다.
+   */
   private indexingCancellationController: AbortController | undefined;
+
+  /**
+   * 인덱싱 오류에 대한 텔레메트리를 전송합니다.
+   * @param update 인덱싱 진행 업데이트입니다.
+   */
   private async sendIndexingErrorTelemetry(update: IndexingProgressUpdate) {
     console.debug(
       "Indexing failed with error: ",
@@ -1041,6 +1128,10 @@ export class Core {
     );
   }
 
+  /**
+   * 주어진 디렉토리들에 대해 코드베이스 인덱스를 새로 고칩니다.
+   * @param paths 인덱스를 새로 고칠 디렉토리들입니다.
+   */
   private async refreshCodebaseIndex(paths: string[]) {
     if (this.indexingCancellationController) {
       this.indexingCancellationController.abort();
@@ -1070,6 +1161,10 @@ export class Core {
     this.indexingCancellationController = undefined;
   }
 
+  /**
+   * 주어진 파일들에 대해 코드베이스 인덱스를 새로 고칩니다.
+   * @param files 인덱스를 새로 고칠 파일들입니다.
+   */
   private async refreshCodebaseIndexFiles(files: string[]) {
     // Can be cancelled by codebase index but not vice versa
     if (
@@ -1104,6 +1199,10 @@ export class Core {
   }
 
   // private
+  /**
+   * 인덱싱 중 발생한 오류를 처리합니다.
+   * @param e 발생한 오류입니다.
+   */
   handleIndexingError(e: any) {
     if (e instanceof LLMError) {
       // Need to report this specific error to the IDE for special handling
