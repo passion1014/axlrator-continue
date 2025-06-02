@@ -55,3 +55,9 @@ on("history/delete", (msg) => {
    historyManager.delete(msg.data.id);
    });
 ```
+
+# IntelliJ -> CORE
+
+```
+continuePluginService.coreMessenger?.request("files/deleted", data, null) { _ -> }
+```
