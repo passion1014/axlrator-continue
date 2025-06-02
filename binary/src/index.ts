@@ -18,6 +18,12 @@ const program = new Command();
 
 program.action(async () => {
   try {
+    /**
+     * 코어 프로토콜과의 통신을 담당하는 메신저 객체입니다.
+     *
+     * @typeParam ToCoreProtocol - 코어로 전송되는 메시지의 타입입니다.
+     * @typeParam FromCoreProtocol - 코어에서 수신되는 메시지의 타입입니다.
+     */
     let messenger: IMessenger<ToCoreProtocol, FromCoreProtocol>;
     if (process.env.CONTINUE_DEVELOPMENT === "true") {
       messenger = new TcpMessenger<ToCoreProtocol, FromCoreProtocol>();

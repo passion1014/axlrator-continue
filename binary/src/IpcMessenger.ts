@@ -5,6 +5,29 @@ import * as fs from "node:fs";
 import net from "node:net";
 import { v4 as uuidv4 } from "uuid";
 
+/**
+ * IPCMessengerBase 클래스는 IPC(프로세스 간 통신)를 위한 메신저의 기본 구현체입니다.
+ *
+ * @template ToProtocol 송신 프로토콜 타입
+ * @template FromProtocol 수신 프로토콜 타입
+ *
+ * 이 클래스는 메시지 송수신, 핸들러 등록, 에러 처리, 비동기 응답 처리 등 IPC 통신에 필요한 핵심 기능을 제공합니다.
+ *
+ * @method _sendMsg(message) 실제 메시지 전송을 담당하는 메서드로, 하위 클래스에서 구현해야 합니다.
+ * @method onError 에러 발생 시 호출될 핸들러를 등록합니다.
+ * @method request 지정한 타입의 메시지를 보내고, 응답을 Promise로 반환합니다.
+ * @method mock 테스트를 위해 데이터를 직접 주입하여 처리할 수 있습니다.
+ * @method send 메시지를 전송합니다.
+ * @method invoke 등록된 핸들러를 직접 호출합니다.
+ * @method on 특정 메시지 타입에 대한 핸들러를 등록합니다.
+ *
+ * @property typeListeners 메시지 타입별로 등록된 핸들러 목록입니다.
+ * @property idListeners 메시지 ID별로 등록된 핸들러 목록입니다.
+ *
+ * @remarks
+ * - 메시지 핸들러는 비동기 함수도 지원하며, async generator를 반환할 경우 스트리밍 응답도 처리할 수 있습니다.
+ * - 내부적으로 메시지 파싱, 에러 로깅, 미완성 라인 처리 등 안정적인 통신을 위한 다양한 기능이 포함되어 있습니다.
+ */
 class IPCMessengerBase<
   ToProtocol extends IProtocol,
   FromProtocol extends IProtocol,
@@ -17,6 +40,10 @@ class IPCMessengerBase<
   typeListeners = new Map<keyof ToProtocol, ((message: Message) => any)[]>();
   idListeners = new Map<string, (message: Message) => any>();
 
+  /**
+   * 수신된 메시지를 처리하는 메서드입니다.
+   * @param line 수신된 메시지 라인
+   */
   private _handleLine(line: string) {
     try {
       const msg: Message = JSON.parse(line);
@@ -95,6 +122,11 @@ class IPCMessengerBase<
 
   private _unfinishedLine: string | undefined = undefined;
 
+  /**
+   * 수신된 데이터를 처리합니다. 데이터는 문자열로 변환되어 줄 단위로 분리됩니다.
+   * 마지막 줄이 완전하지 않은 경우, 다음 데이터 수신 시 이어서 처리합니다.
+   * @param data 수신된 데이터
+   */
   protected _handleData(data: Buffer) {
     const d = data.toString();
     const lines = d.split(/\r\n/).filter((line) => line.trim() !== "");
@@ -118,6 +150,12 @@ class IPCMessengerBase<
     this._onErrorHandlers.push(handler);
   }
 
+  /**
+   * 지정한 메시지 타입에 대한 요청을 보내고, 응답을 Promise로 반환합니다.
+   * @param messageType 요청할 메시지 타입
+   * @param data 요청 데이터
+   * @returns 응답 데이터의 Promise
+   */
   request<T extends keyof FromProtocol>(
     messageType: T,
     data: FromProtocol[T][0],
@@ -138,6 +176,13 @@ class IPCMessengerBase<
     this._handleData(Buffer.from(d));
   }
 
+  /**
+   * 지정한 메시지 타입과 데이터를 사용하여 메시지를 전송합니다.
+   * @param messageType 전송할 메시지의 타입
+   * @param data 전송할 데이터
+   * @param messageId 선택적으로 지정할 메시지 ID
+   * @returns 전송된 메시지의 ID
+   */
   send<T extends keyof FromProtocol>(
     messageType: T,
     data: FromProtocol[T][0],
@@ -153,6 +198,12 @@ class IPCMessengerBase<
     return messageId;
   }
 
+  /**
+   * 지정한 메시지 타입에 대한 핸들러를 직접 호출합니다.
+   * @param messageType 호출할 메시지 타입
+   * @param data 핸들러에 전달할 데이터
+   * @returns 핸들러의 반환값
+   */
   invoke<T extends keyof ToProtocol>(
     messageType: T,
     data: ToProtocol[T][0],
@@ -164,6 +215,11 @@ class IPCMessengerBase<
     });
   }
 
+  /**
+   * 지정한 메시지 타입에 대한 핸들러를 등록합니다.
+   * @param messageType 등록할 메시지 타입
+   * @param handler 해당 타입의 메시지를 처리할 핸들러 함수
+   */
   on<T extends keyof ToProtocol>(
     messageType: T,
     handler: (
@@ -177,6 +233,9 @@ class IPCMessengerBase<
   }
 }
 
+/**
+ * IpcMessenger 클래스는 IPC(프로세스 간 통신)를 위한 메신저 구현체입니다.
+ */
 export class IpcMessenger<
     ToProtocol extends IProtocol,
     FromProtocol extends IProtocol,
@@ -210,6 +269,9 @@ export class IpcMessenger<
   }
 }
 
+/**
+ * CoreBinaryMessenger 클래스는 Node.js의 Child Process를 사용하여 IPC(프로세스 간 통신)를 위한 메신저 구현체입니다.
+ */
 export class CoreBinaryMessenger<
     ToProtocol extends IProtocol,
     FromProtocol extends IProtocol,
@@ -223,6 +285,10 @@ export class CoreBinaryMessenger<
     (message: Message<any>) => Promise<any> | any
   > = new Map();
 
+  /**
+   * CoreBinaryMessenger 생성자
+   * @param subprocess
+   */
   constructor(private readonly subprocess: ChildProcessWithoutNullStreams) {
     super();
     console.log("Setup");
@@ -245,6 +311,9 @@ export class CoreBinaryMessenger<
   }
 }
 
+/**
+ * CoreBinaryTcpMessenger 클래스는 TCP 소켓을 사용하여 IPC(프로세스 간 통신)를 위한 메신저 구현체입니다.
+ */
 export class CoreBinaryTcpMessenger<
     ToProtocol extends IProtocol,
     FromProtocol extends IProtocol,

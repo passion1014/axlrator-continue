@@ -63,6 +63,32 @@ import type { FromCoreProtocol, ToCoreProtocol } from "./protocol";
 import type { IMessenger, Message } from "./protocol/messenger";
 import { StreamAbortManager } from "./util/abortManager";
 
+/**
+ * Core 클래스는 Continue 확장 프로그램의 백엔드 로직을 중앙에서 조율하는 역할을 합니다.
+ * 이 클래스는 설정 관리, 코드베이스 인덱싱, LLM 연산, 컨텍스트 제공자, 그리고 메신저 인터페이스를 통한
+ * IDE와의 통신을 담당합니다.
+ *
+ * 주요 역할:
+ * - ConfigHandler를 통한 설정 및 프로필 관리
+ * - 코드베이스 인덱싱 및 진행 상황 업데이트 관리
+ * - LLM 완성 및 채팅 기능 제공
+ * - IDE 통합, 파일 시스템 이벤트, 컨텍스트/문서 인덱싱, 인증, 도구 호출, 텔레메트리 등
+ *   다양한 메시지 타입 등록 및 처리
+ * - 컨텍스트 제공자 및 컨텍스트 아이템 조회 관리
+ * - 온보딩 플로우 및 동적 설정 업데이트 처리
+ * - 메시지 취소 및 인덱싱 작업을 위한 abort 컨트롤러 관리
+ *
+ * @remarks
+ * - Core 클래스는 확장 프로그램 세션마다 한 번만 인스턴스화되어야 합니다.
+ * - IDE 프론트엔드와의 통신을 위해 IMessenger 인터페이스에 강하게 결합되어 있습니다.
+ * - 많은 작업이 비동기적으로 이루어지며, 초기화와 이벤트 처리를 위해 Promise를 사용합니다.
+ * - 오류 처리와 텔레메트리는 강력한 진단 및 보고를 위해 중앙 집중화되어 있습니다.
+ *
+ * @example
+ * ```typescript
+ * const core = new Core(messenger, ide);
+ * ```
+ */
 export class Core {
   configHandler: ConfigHandler;
   codebaseIndexerPromise: Promise<CodebaseIndexer>;
@@ -88,9 +114,10 @@ export class Core {
   private messageAbortControllers = new Map<string, AbortController>();
 
   /**
-   * 메시지 ID로 AbortController를 추가합니다.
-   * @param id 메시지 ID
-   * @returns AbortController
+   * 메시지 ID에 대한 AbortController를 추가하고, 해당 컨트롤러가 중단되면 삭제합니다.
+   *
+   * @param id - AbortController를 추가할 메시지 ID
+   * @returns 새로 생성된 AbortController 인스턴스
    */
   private addMessageAbortController(id: string): AbortController {
     const controller = new AbortController();
@@ -111,10 +138,11 @@ export class Core {
   }
 
   /**
-   * 메시지를 전송합니다.
-   * @param messageType 메시지 유형
-   * @param data 메시지 데이터
-   * @returns 메시지 ID
+   * 코어 프로토콜 메시지를 호출하고 응답을 반환합니다.
+   *
+   * @param messageType - 호출할 메시지 타입
+   * @param data - 메시지에 포함될 데이터
+   * @returns 메시지 응답
    */
   invoke<T extends keyof ToCoreProtocol>(
     messageType: T,
@@ -139,7 +167,8 @@ export class Core {
   }
 
   // TODO: 실제로는 IDE 타입이 필요하지 않아야 합니다.
-  // 이 작업은 메신저를 통해 발생할 수 있습니다(실제로 VS Code가 아닌 IDE의 경우 이미 그렇게 동작합니다).
+  // 이 작업은 메신저를 통해서도 발생할 수 있기 때문입니다
+  // (VS Code가 아닌 다른 IDE의 경우 이미 메신저를 통해 처리되고 있습니다).
   constructor(
     private readonly messenger: IMessenger<ToCoreProtocol, FromCoreProtocol>,
     private readonly ide: IDE,
@@ -280,8 +309,21 @@ export class Core {
 
   /* eslint-disable max-lines-per-function */
   /**
-   *  메시지 핸들러를 등록합니다.
-   * @param ideSettingsPromise
+   * 코어 메신저 인터페이스의 모든 메시지 핸들러를 등록합니다.
+   *
+   * 이 메서드는 다양한 메시지 타입을 해당 핸들러 함수에 바인딩하여,
+   * 코어 로직과 IDE, 설정, LLM, 컨텍스트 제공자, 파일 시스템, 인덱싱 및 기타 서비스 간의
+   * 통신을 가능하게 합니다. 각 지원되는 메시지 타입에 대해 오류 처리, 명령 라우팅,
+   * 비동기 작업을 설정합니다.
+   *
+   * @param ideSettingsPromise - 일부 설정 및 인증 흐름에 사용되는 IDE 설정을 반환하는 프로미스입니다.
+   *
+   * @remarks
+   * - 핸들러는 히스토리 관리, 설정 업데이트, LLM 연산, 컨텍스트/문서 인덱싱,
+   *   파일 시스템 이벤트, 인증, 도구 호출, 프로세스 상태 등 다양한 영역을 다룹니다.
+   * - 일부 핸들러는 비동기이며 결과를 반환하거나 부수 효과를 발생시킬 수 있습니다.
+   * - 메신저 오류에 대한 오류 처리는 중앙 집중화되어 있으며, 특정 메시지 타입에 대해 중복 오류 메시지를 방지하는 특별한 로직이 있습니다.
+   * - 모든 메시지 타입이 적절히 처리되도록 초기화 시 이 메서드를 호출해야 합니다.
    */
   private registerMessageHandlers(ideSettingsPromise: Promise<IdeSettings>) {
     const on = this.messenger.on.bind(this.messenger);

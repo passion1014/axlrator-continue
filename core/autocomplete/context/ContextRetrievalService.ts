@@ -9,6 +9,10 @@ import { ImportDefinitionsService } from "./ImportDefinitionsService";
 import { getSymbolsForSnippet } from "./ranking";
 import { RootPathContextService } from "./root-path-context/RootPathContextService";
 
+/**
+ * ContextRetrievalService는 현재 파일의 import 정의와 루트 경로에 대한 코드 스니펫을 가져오는 서비스입니다.
+ * 이 서비스는 IDE 인스턴스를 사용하여 import 정의와 루트 경로 컨텍스트를 관리합니다.
+ */
 export class ContextRetrievalService {
   private importDefinitionsService: ImportDefinitionsService;
   private rootPathContextService: RootPathContextService;
@@ -21,6 +25,11 @@ export class ContextRetrievalService {
     );
   }
 
+  /**
+   * 현재 파일의 import 정의에서 코드 스니펫을 가져옵니다.
+   * @param helper - 헬퍼 변수로, 현재 파일 경로와 옵션을 포함합니다.
+   * @returns import 정의에서 가져온 코드 스니펫 배열
+   */
   public async getSnippetsFromImportDefinitions(
     helper: HelperVars,
   ): Promise<AutocompleteCodeSnippet[]> {
@@ -58,6 +67,11 @@ export class ContextRetrievalService {
     return importSnippets;
   }
 
+  /**
+   * 현재 파일의 루트 경로에 대한 코드 스니펫을 가져옵니다.
+   * @param helper - 헬퍼 변수로, 현재 파일 경로와 트리 경로를 포함합니다.
+   * @returns 루트 경로에 대한 코드 스니펫 배열
+   */
   public async getRootPathSnippets(
     helper: HelperVars,
   ): Promise<AutocompleteCodeSnippet[]> {

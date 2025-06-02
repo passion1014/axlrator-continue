@@ -19,6 +19,13 @@ import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 
+/** * 자동완성 후보를 보류 중인 상태를 나타내는 데이터 클래스입니다.
+ *
+ * @property editor 자동완성을 요청한 에디터
+ * @property offset 자동완성 후보가 삽입될 위치의 오프셋
+ * @property completionId 자동완성 요청의 고유 ID
+ * @property text 자동완성 후보 텍스트
+ */
 data class PendingCompletion(
     val editor: Editor,
     var offset: Int,
@@ -27,6 +34,12 @@ data class PendingCompletion(
 )
 
 
+/**
+ * PsiElement가 인젝션된 텍스트인지 확인합니다.
+ * 인젝션된 텍스트는 VirtualFileWindow를 통해 관리됩니다.
+ *
+ * @return 인젝션된 텍스트 여부
+ */
 fun PsiElement.isInjectedText(): Boolean {
     val virtualFile = this.containingFile.virtualFile ?: return false
     if (virtualFile is VirtualFileWindow) {
@@ -35,6 +48,15 @@ fun PsiElement.isInjectedText(): Boolean {
     return false
 }
 
+
+/**
+ * 에디터에 인레이(Inlay) 요소를 추가합니다.
+ * 첫 번째 줄은 인라인 요소로, 나머지 줄은 블록 요소로 추가합니다.
+ *
+ * @param lines 인레이로 추가할 텍스트 라인 목록
+ * @param offset 인레이를 추가할 위치의 오프셋
+ * @param properties 인레이 속성
+ */
 fun Editor.addInlayElement(
     lines: List<String>,
     offset: Int,
@@ -49,7 +71,6 @@ fun Editor.addInlayElement(
         }
     }
 }
-
 
 /**
  * AutocompleteService는 에디터에서 자동완성 후보를 관리하고 렌더링하는 서비스입니다.
