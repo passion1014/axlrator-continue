@@ -1,5 +1,9 @@
 import { ListenableGenerator } from "./ListenableGenerator";
 
+/**
+ * GeneratorReuseManager는 자동완성 생성(context)에서 generator의 재사용을 관리합니다.
+ * 가능한 경우 기존 generator를 재사용하고, 필요할 때 새 generator를 생성합니다.
+ */
 export class GeneratorReuseManager {
   currentGenerator: ListenableGenerator<string> | undefined;
   pendingGeneratorPrefix: string | undefined;
@@ -7,6 +11,12 @@ export class GeneratorReuseManager {
 
   constructor(private readonly onError: (err: any) => void) {}
 
+  /**
+   * 현재 generator를 취소하고 새 listenable generator를 생성합니다.
+   * @param abortController - AbortController 인스턴스
+   * @param gen - AsyncGenerator<string> 인스턴스
+   * @param prefix - 현재 입력된 접두사
+   */
   private _createListenableGenerator(
     abortController: AbortController,
     gen: AsyncGenerator<string>,
@@ -14,7 +24,11 @@ export class GeneratorReuseManager {
   ) {
     this.currentGenerator?.cancel();
 
-    const listenableGen = new ListenableGenerator(gen, this.onError, abortController);
+    const listenableGen = new ListenableGenerator(
+      gen,
+      this.onError,
+      abortController,
+    );
     listenableGen.listen((chunk) => (this.pendingCompletion += chunk ?? ""));
 
     this.pendingGeneratorPrefix = prefix;
@@ -22,6 +36,11 @@ export class GeneratorReuseManager {
     this.currentGenerator = listenableGen;
   }
 
+  /**
+   * 현재 generator가 재사용 가능한지 확인합니다.
+   * @param prefix - 현재 입력된 접두사
+   * @returns true if the existing generator can be reused, false otherwise
+   */
   private shouldReuseExistingGenerator(prefix: string): boolean {
     return (
       !!this.currentGenerator &&
@@ -34,6 +53,13 @@ export class GeneratorReuseManager {
     );
   }
 
+  /**
+   * 현재 입력된 접두사에 따라 generator를 가져옵니다.
+   * @param prefix - 현재 입력된 접두사
+   * @param newGenerator - 새 generator를 생성하는 함수
+   * @param multiline - 멀티라인 모드 여부
+   * @returns AsyncGenerator<string> - 생성된 generator
+   */
   async *getGenerator(
     prefix: string,
     newGenerator: (abortSignal: AbortSignal) => AsyncGenerator<string>,
@@ -43,7 +69,11 @@ export class GeneratorReuseManager {
     if (!this.shouldReuseExistingGenerator(prefix)) {
       // Create a wrapper over the current generator to fix the prompt
       const abortController = new AbortController();
-      this._createListenableGenerator(abortController, newGenerator(abortController.signal), prefix);
+      this._createListenableGenerator(
+        abortController,
+        newGenerator(abortController.signal),
+        prefix,
+      );
     }
 
     // Already typed characters are those that are new in the prefix from the old generator

@@ -11,6 +11,11 @@ import {
   AutocompleteSnippetType,
 } from "../snippets/types.js";
 
+/**
+ * AutocompleteTemplate 인터페이스는 자동완성 템플릿을 정의합니다.
+ * 이 템플릿은 prefix, suffix, filepath, reponame, snippets 및 workspaceUris를 사용하여
+ * 자동완성 요청에 대한 템플릿을 생성하는 데 사용됩니다.
+ */
 export interface AutocompleteTemplate {
   compilePrefixSuffix?: (
     prefix: string,
@@ -72,7 +77,8 @@ const qwenCoderFimTemplate: AutocompleteTemplate = {
 };
 
 const seedCoderFimTemplate: AutocompleteTemplate = {
-  template: "<[fim-prefix]>{{{prefix}}}<[fim-suffix]>{{{suffix}}}<[fim-middle]>",
+  template:
+    "<[fim-prefix]>{{{prefix}}}<[fim-suffix]>{{{suffix}}}<[fim-middle]>",
   completionOptions: {
     stop: [
       "<[end▁of▁sentence]>",
@@ -427,6 +433,11 @@ function hypothenuse(a, b) {
   },
 };
 
+/**
+ * getTemplateForModel 함수는 주어진 모델 이름에 따라 적절한 AutocompleteTemplate을 반환합니다.
+ * @param model - 모델 이름
+ * @returns AutocompleteTemplate
+ */
 export function getTemplateForModel(model: string): AutocompleteTemplate {
   const lowerCaseModel = model.toLowerCase();
 

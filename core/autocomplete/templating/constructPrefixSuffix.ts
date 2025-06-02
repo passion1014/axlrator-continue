@@ -7,6 +7,12 @@ import { AutocompleteInput } from "../util/types";
  * We have to handle a few edge cases in getting the entire prefix/suffix for the current file.
  * This is entirely prior to finding snippets from other files
  */
+/**
+ * 주어진 입력과 IDE 인스턴스를 사용하여 초기 접두사 및 접미사를 구성합니다.
+ * @param input - 자동완성 입력
+ * @param ide - IDE 인스턴스
+ * @returns 초기 접두사 및 접미사
+ */
 export async function constructInitialPrefixSuffix(
   input: AutocompleteInput,
   ide: IDE,

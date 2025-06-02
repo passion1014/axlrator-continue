@@ -23,6 +23,11 @@ export interface SnippetPayload {
   clipboardSnippets: AutocompleteClipboardSnippet[];
 }
 
+/**
+ * 주어진 프로미스가 지정된 시간 내에 완료되지 않으면 빈 배열을 반환합니다.
+ * @param promise
+ * @returns
+ */
 function racePromise<T>(promise: Promise<T[]>): Promise<T[]> {
   const timeoutPromise = new Promise<T[]>((resolve) => {
     setTimeout(() => resolve([]), 100);
@@ -31,6 +36,9 @@ function racePromise<T>(promise: Promise<T[]>): Promise<T[]> {
   return Promise.race([promise, timeoutPromise]);
 }
 
+/**
+ * DiffSnippetsCache 클래스는 diff 스니펫을 캐싱하여
+ */
 class DiffSnippetsCache {
   private cache: Map<number, any> = new Map();
   private lastTimestamp: number = 0;
@@ -54,6 +62,13 @@ const diffSnippetsCache = new DiffSnippetsCache();
 
 // Some IDEs might have special ways of finding snippets (e.g. JetBrains and VS Code have different "LSP-equivalent" systems,
 // or they might separately track recently edited ranges)
+/**
+ * 주어진 헬퍼 변수와 IDE 인스턴스를 사용하여 IDE 스니펫을 가져옵니다.
+ * @param helper - 헬퍼 변수들
+ * @param ide - IDE 인스턴스
+ * @param getDefinitionsFromLsp - LSP에서 정의를 가져오는 함수
+ * @returns AutocompleteCodeSnippet 배열
+ */
 async function getIdeSnippets(
   helper: HelperVars,
   ide: IDE,
@@ -80,6 +95,11 @@ async function getIdeSnippets(
   return ideSnippets;
 }
 
+/**
+ * 최근에 편집된 범위에서 스니펫을 가져옵니다.
+ * @param helper - 헬퍼 변수들
+ * @returns 최근에 편집된 범위의 스니펫 배열
+ */
 function getSnippetsFromRecentlyEditedRanges(
   helper: HelperVars,
 ): AutocompleteCodeSnippet[] {
@@ -96,6 +116,11 @@ function getSnippetsFromRecentlyEditedRanges(
   });
 }
 
+/**
+ * 주어진 IDE 인스턴스에서 클립보드 스니펫을 가져옵니다.
+ * @param ide - IDE 인스턴스
+ * @returns AutocompleteClipboardSnippet 배열
+ */
 const getClipboardSnippets = async (
   ide: IDE,
 ): Promise<AutocompleteClipboardSnippet[]> => {
@@ -110,15 +135,22 @@ const getClipboardSnippets = async (
   });
 };
 
+/**
+ * 주어진 IDE 인스턴스에서 diff 스니펫을 가져옵니다.
+ * @param ide
+ * @returns
+ */
 const getDiffSnippets = async (
   ide: IDE,
 ): Promise<AutocompleteDiffSnippet[]> => {
-  const currentTimestamp = ide.getLastFileSaveTimestamp ?
-    ide.getLastFileSaveTimestamp() :
-    Math.floor(Date.now() / 10000) * 10000; // Defaults to update once in every 10 seconds
+  const currentTimestamp = ide.getLastFileSaveTimestamp
+    ? ide.getLastFileSaveTimestamp()
+    : Math.floor(Date.now() / 10000) * 10000; // Defaults to update once in every 10 seconds
 
   // Check cache first
-  const cached = diffSnippetsCache.get(currentTimestamp) as AutocompleteDiffSnippet[];
+  const cached = diffSnippetsCache.get(
+    currentTimestamp,
+  ) as AutocompleteDiffSnippet[];
 
   if (cached) {
     return cached;
@@ -131,15 +163,31 @@ const getDiffSnippets = async (
     console.error("Error getting diff for autocomplete", e);
   }
 
-  return diffSnippetsCache.set(currentTimestamp, diff.map((item) => {
-    return {
-      content: item,
-      type: AutocompleteSnippetType.Diff,
-    };
-  }));
-
+  return diffSnippetsCache.set(
+    currentTimestamp,
+    diff.map((item) => {
+      return {
+        content: item,
+        type: AutocompleteSnippetType.Diff,
+      };
+    }),
+  );
 };
 
+/**
+ * 모든 스니펫을 가져옵니다.
+ * - 루트 경로 스니펫
+ * - import 정의 스니펫
+ * - IDE 스니펫
+ * - 최근에 편집된 범위 스니펫
+ * - diff 스니펫
+ * - 클립보드 스니펫
+ * @param helper - 헬퍼 변수들
+ * @param ide - IDE 인스턴스
+ * @param getDefinitionsFromLsp - LSP에서 정의를 가져오는 함수
+ * @param contextRetrievalService - 컨텍스트 검색 서비스 인스턴스
+ * @returns SnippetPayload 객체
+ */
 export const getAllSnippets = async ({
   helper,
   ide,
@@ -162,8 +210,12 @@ export const getAllSnippets = async ({
     clipboardSnippets,
   ] = await Promise.all([
     racePromise(contextRetrievalService.getRootPathSnippets(helper)),
-    racePromise(contextRetrievalService.getSnippetsFromImportDefinitions(helper)),
-    IDE_SNIPPETS_ENABLED ? racePromise(getIdeSnippets(helper, ide, getDefinitionsFromLsp)) : [],
+    racePromise(
+      contextRetrievalService.getSnippetsFromImportDefinitions(helper),
+    ),
+    IDE_SNIPPETS_ENABLED
+      ? racePromise(getIdeSnippets(helper, ide, getDefinitionsFromLsp))
+      : [],
     racePromise(getDiffSnippets(ide)),
     racePromise(getClipboardSnippets(ide)),
   ]);

@@ -16,6 +16,14 @@ export type CharacterFilter = (args: {
   multiline: boolean;
 }) => AsyncGenerator<string>;
 
+/**
+ * 라인이 괄호로 끝나는지 판단합니다.
+ * @param {string} line - 검사할 라인
+ * @returns {boolean} - 라인이 괄호로 끝나면 true, 아니면 false
+ *
+ * @description
+ * 라인이 괄호로 끝나는지 확인합니다. 괄호는 ) , ] , } , ; 중 하나입니다.
+ */
 function isBracketEnding(line: string): boolean {
   return line
     .trim()
@@ -23,6 +31,15 @@ function isBracketEnding(line: string): boolean {
     .some((char) => BRACKET_ENDING_CHARS.includes(char));
 }
 
+/**
+ * 라인이 영어로 작성된 코드 블록의 첫 번째 라인인지 판단합니다.
+ * @param {string} line - 검사할 라인
+ * @returns {boolean} - 영어로 작성된 코드 블록의 첫 번째 라인이면 true, 아니면 false
+ *
+ * @description
+ * 라인이 영어로 시작하는 특정 구문으로 시작하는지 확인합니다.
+ * 코드 키워드가 세미콜론으로 끝나는 경우를 제외합니다.
+ */
 function isEnglishFirstLine(line: string) {
   line = line.trim().toLowerCase();
 
@@ -38,11 +55,28 @@ function isEnglishFirstLine(line: string) {
   return ENGLISH_START_PHRASES.some((phrase) => line.startsWith(phrase));
 }
 
+/**
+ * 라인이 영어로 작성된 코드 블록의 설명인지 판단합니다.
+ * @param {string} line - 검사할 라인
+ * @returns {boolean} - 영어로 작성된 코드 블록의 설명이면 true, 아니면 false
+ *
+ * @description
+ * 라인이 영어로 작성된 코드 블록의 설명인지 판단합니다.
+ * 라인이 영어로 시작하는 특정 구문으로 시작하는지 확인합니다.
+ */
 function isEnglishPostExplanation(line: string): boolean {
   const lower = line.toLowerCase();
   return ENGLISH_POST_PHRASES.some((phrase) => lower.startsWith(phrase));
 }
 
+/**
+ * 라인이 코드 블록 시작 전 제거해야 하는지 판단합니다.
+ * @param {string} line - 검사할 라인
+ * @returns {boolean} - 라인을 제거해야 하면 true, 아니면 false
+ *
+ * @description
+ * 라인이 코드 블록의 시작( ``` )이거나, 특정 제거 대상 라인 목록에 포함된 경우 true를 반환합니다.
+ */
 function shouldRemoveLineBeforeStart(line: string): boolean {
   return (
     line.trimStart().startsWith("```") ||
@@ -50,6 +84,15 @@ function shouldRemoveLineBeforeStart(line: string): boolean {
   );
 }
 
+/**
+ * 라인이 변경되어야 하는지 판단하고, 필요시 라인을 변경하고 스트림을 중단합니다.
+ * @param {string} line - 검사할 라인
+ * @returns {string | undefined} - 변경된 라인 또는 undefined
+ *
+ * @description
+ * 라인이 코드 블록의 시작( ``` )이거나, 코드 블록 중단 문구( [/CODE] )를 포함하는 경우,
+ * 해당 라인을 반환합니다. 그렇지 않으면 undefined를 반환합니다.
+ */
 function shouldChangeLineAndStop(line: string): string | undefined {
   if (line.trimStart() === "```") {
     return line;
@@ -62,6 +105,14 @@ function shouldChangeLineAndStop(line: string): string | undefined {
   return undefined;
 }
 
+/**
+ * 라인이 불필요한지 판단합니다.
+ * @param {string} line - 검사할 라인
+ * @returns {boolean} - 라인이 불필요하면 true, 아니면 false
+ *
+ * @description
+ * 라인이 비어 있거나 "// end"로 시작하는 경우 불필요한 라인으로 간주합니다.
+ */
 function isUselessLine(line: string): boolean {
   const trimmed = line.trim().toLowerCase();
   const hasUselessLine = USELESS_LINES.some(
@@ -104,6 +155,7 @@ export const ENGLISH_POST_PHRASES = [
   "the above",
 ];
 
+// 상위 레벨 키워드가 중간에 등장하는 라인을 필터링합니다.
 export async function* noTopLevelKeywordsMidline(
   lines: LineStream,
   topLevelKeywords: string[],
@@ -112,7 +164,7 @@ export async function* noTopLevelKeywordsMidline(
   for await (const line of lines) {
     for (const keyword of topLevelKeywords) {
       const indexOf = line.indexOf(`${keyword} `);
-      // TODO: What is this second clause for?
+      // TODO: 이 두 번째 조건절의 용도는 무엇인가요?
       if (indexOf >= 0 && line.slice(indexOf - 1, indexOf).trim() !== "") {
         yield line.slice(0, indexOf);
         fullStop();
@@ -124,18 +176,18 @@ export async function* noTopLevelKeywordsMidline(
 }
 
 /**
- * Filters out lines starting with '// Path: <PATH>' from a LineStream.
+ * LineStream에서 '// Path: <PATH>'로 시작하는 라인을 필터링합니다.
  *
- * @param {LineStream} stream - The input stream of lines to filter.
- * @param {string} comment - The comment syntax to filter (e.g., '//' for JavaScript-style comments).
- * @yields {string} The filtered lines, excluding unwanted path lines.
+ * @param {LineStream} stream - 필터링할 입력 라인 스트림
+ * @param {string} comment - 필터링할 주석 구문 (예: JavaScript 스타일의 '//' 등)
+ * @yields {string} 원하지 않는 경로 라인을 제외한 필터링된 라인
  */
 export async function* avoidPathLine(
   stream: LineStream,
   comment?: string,
 ): LineStream {
-  // Snippets are inserted as comments with a line at the start '// Path: <PATH>'.
-  // Sometimes the model with copy this pattern, which is unwanted
+  // 스니펫은 '// Path: <PATH>'로 시작하는 주석 라인으로 삽입됩니다.
+  // 모델이 이 패턴을 복사하는 경우가 있는데, 이는 원하지 않는 동작입니다.
   for await (const line of stream) {
     if (line.startsWith(`${comment} Path: `)) {
       continue;
@@ -145,17 +197,17 @@ export async function* avoidPathLine(
 }
 
 /**
- * Filters out empty comment lines from a LineStream.
+ * LineStream에서 빈 주석 라인을 필터링합니다.
  *
- * @param {LineStream} stream - The input stream of lines to filter.
- * @param {string} comment - The comment syntax to filter (e.g., '//' for JavaScript-style comments).
- * @yields {string} The filtered lines, excluding empty comments.
+ * @param {LineStream} stream - 필터링할 입력 라인 스트림
+ * @param {string} comment - 필터링할 주석 구문 (예: JavaScript 스타일의 '//' 등)
+ * @yields {string} 빈 주석을 제외한 필터링된 라인
  */
 export async function* avoidEmptyComments(
   stream: LineStream,
   comment?: string,
 ): LineStream {
-  // Filter lines that are empty comments
+  // 빈 주석 라인을 필터링합니다.
   for await (const line of stream) {
     if (!comment || line.trim() !== comment) {
       yield line;
@@ -164,10 +216,10 @@ export async function* avoidEmptyComments(
 }
 
 /**
- * Transforms a LineStream by adding newline characters between lines.
+ * LineStream을 변환하여 라인 사이에 개행 문자를 추가합니다.
  *
- * @param {LineStream} stream - The input stream of lines.
- * @yields {string} The lines from the input stream with newline characters added between them.
+ * @param {LineStream} stream - 입력 라인 스트림
+ * @yields {string} 라인 사이에 개행 문자가 추가된 라인
  */
 export async function* streamWithNewLines(stream: LineStream): LineStream {
   let firstLine = true;
@@ -181,15 +233,15 @@ export async function* streamWithNewLines(stream: LineStream): LineStream {
 }
 
 /**
- * Determines if two lines of text are considered repeated or very similar.
+ * 두 텍스트 라인이 반복되거나 매우 유사한지 판단합니다.
  *
- * @param {string} a - The first line of text to compare.
- * @param {string} b - The second line of text to compare.
- * @returns {boolean} True if the lines are considered repeated, false otherwise.
+ * @param {string} a - 비교할 첫 번째 라인
+ * @param {string} b - 비교할 두 번째 라인
+ * @returns {boolean} 라인이 반복된 것으로 간주되면 true, 아니면 false
  *
  * @description
- * This function checks if the Levenshtein distance between them is less than 10% of the length of the second line.
- * Lines shorter than 5 characters are never considered repeated.
+ * 두 라인의 Levenshtein 거리가 두 번째 라인의 길이의 10% 미만이면 반복된 것으로 간주합니다.
+ * 5자 미만의 라인은 반복된 것으로 간주하지 않습니다.
  */
 export function lineIsRepeated(a: string, b: string): boolean {
   if (a.length <= 4 || b.length <= 4) {
@@ -202,19 +254,18 @@ export function lineIsRepeated(a: string, b: string): boolean {
 }
 
 /**
- * Filters a LineStream, stopping when a line similar to the provided one is encountered.
+ * LineStream을 필터링하여, 주어진 라인과 유사한 라인이 등장하면 중단합니다.
  *
- * @param {LineStream} stream - The input stream of lines to filter.
- * @param {string} line - The line to compare against for similarity.
- * @param {() => void} fullStop - Function to call when stopping the stream.
- * @yields {string} Filtered lines until a similar line is encountered.
+ * @param {LineStream} stream - 필터링할 입력 라인 스트림
+ * @param {string} line - 유사성을 비교할 라인
+ * @param {() => void} fullStop - 스트림을 중단할 때 호출할 함수
+ * @yields {string} 유사한 라인이 등장하기 전까지의 필터링된 라인
  *
  * @description
- * This generator function processes the input stream, yielding lines until it encounters:
- * 1. An exact match to the provided line.
- * 2. A line that is considered repeated or very similar to the provided line.
- * 3. For lines ending with brackets, it allows exact matches of trimmed content.
- * When any of these conditions are met, it calls the fullStop function and stops yielding.
+ * 다음 조건 중 하나라도 만족하면 fullStop을 호출하고 중단합니다:
+ * 1. 주어진 라인과 정확히 일치하는 경우
+ * 2. 반복되거나 매우 유사한 라인인 경우
+ * 3. 괄호로 끝나는 라인의 경우, 트림된 내용이 정확히 일치하면 허용
  */
 export async function* stopAtSimilarLine(
   stream: LineStream,
@@ -250,10 +301,10 @@ export async function* stopAtSimilarLine(
 }
 
 /**
- * Filters a LineStream, stopping when a line contains any of the specified stop phrases.
- * @param {LineStream} stream - The input stream of lines.
- * @param {() => void} fullStop - Function to call when stopping.
- * @yields {string} Filtered lines until a stop phrase is encountered.
+ * LineStream을 필터링하여, 지정된 중단 문구가 포함된 라인이 등장하면 중단합니다.
+ * @param {LineStream} stream - 입력 라인 스트림
+ * @param {() => void} fullStop - 중단 시 호출할 함수
+ * @yields {string} 중단 문구가 등장하기 전까지의 필터링된 라인
  */
 export async function* stopAtLines(
   stream: LineStream,
@@ -269,6 +320,13 @@ export async function* stopAtLines(
   }
 }
 
+/**
+ * LineStream을 필터링하여, 지정된 라인과 정확히 일치하는 라인이 등장하면 중단합니다.
+ * @param {LineStream} stream - 입력 라인 스트림
+ * @param {() => void} fullStop - 중단 시 호출할 함수
+ * @param {string[]} linesToStopAt - 중단할 라인 목록
+ * @yields {string} 중단 문구가 등장하기 전까지의 필터링된 라인
+ */
 export async function* stopAtLinesExact(
   stream: LineStream,
   fullStop: () => void,
@@ -284,9 +342,9 @@ export async function* stopAtLinesExact(
 }
 
 /**
- * Filters a LineStream, skipping specified prefixes on the first line.
- * @param {LineStream} lines - The input stream of lines.
- * @yields {string} Filtered lines with prefixes removed from the first line if applicable.
+ * LineStream의 첫 번째 라인에서 지정된 접두사를 건너뜁니다.
+ * @param {LineStream} lines - 입력 라인 스트림
+ * @yields {string} 첫 번째 라인에서 접두사가 제거된 라인
  */
 export async function* skipPrefixes(lines: LineStream): LineStream {
   let isFirstLine = true;
@@ -304,9 +362,9 @@ export async function* skipPrefixes(lines: LineStream): LineStream {
 }
 
 /**
- * Filters out lines starting with specified prefixes from a LineStream.
- * @param {LineStream} stream - The input stream of lines.
- * @yields {string} Filtered lines that don't start with any of the LINES_TO_SKIP prefixes.
+ * 지정된 접두사로 시작하는 라인을 LineStream에서 건너뜁니다.
+ * @param {LineStream} stream - 입력 라인 스트림
+ * @yields {string} LINES_TO_SKIP 접두사로 시작하지 않는 라인
  */
 export async function* skipLines(stream: LineStream): LineStream {
   for await (const line of stream) {
@@ -317,9 +375,9 @@ export async function* skipLines(stream: LineStream): LineStream {
 }
 
 /**
- * Handles cases where original lines have a trailing whitespace, but new lines do not.
- * @param {LineStream} stream - The input stream of lines.
- * @yields {string} Filtered lines that are stripped of trailing whitespace
+ * 원본 라인에 후행 공백이 있지만 새 라인에는 없는 경우를 처리합니다.
+ * @param {LineStream} stream - 입력 라인 스트림
+ * @yields {string} 후행 공백이 제거된 라인
  */
 export async function* removeTrailingWhitespace(
   stream: LineStream,
@@ -330,59 +388,56 @@ export async function* removeTrailingWhitespace(
 }
 
 /**
- * Filters and processes lines from a code block, removing unnecessary markers and handling edge cases.
+ * 코드 블록에서 불필요한 마커를 제거하고, 특수 케이스를 처리하며 라인을 필터링합니다.
  *
- * @param {LineStream} rawLines - The input stream of lines to filter.
- * @yields {string} Filtered and processed lines from the code block.
+ * @param {LineStream} rawLines - 필터링할 입력 라인 스트림
+ * @yields {string} 코드 블록의 필터링 및 처리된 라인
  *
  * @description
- * This generator function performs the following tasks:
- * 1. Removes initial lines that should be removed before the actual code starts.
- * 2. Filters out ending code block markers (```) unless they are the last line.
- * 3. Handles special cases where lines should be changed and the stream should stop.
- * 4. Yields processed lines that are part of the actual code block content.
+ * 1. 실제 코드가 시작되기 전 제거해야 할 라인을 삭제합니다.
+ * 2. 마지막 라인이 아닌 경우 코드 블록 마커( ```)를 필터링합니다.
+ * 3. 라인을 변경하고 스트림을 중단해야 하는 특수 케이스를 처리합니다.
+ * 4. 실제 코드 블록 내용의 라인을 반환합니다.
  */
 export async function* filterCodeBlockLines(rawLines: LineStream): LineStream {
   let seenFirstFence = false;
-  // nestCount is set to 1 when the entire code block is wrapped with ``` or START blocks. It's then incremented
-  // when an inner code block is discovered to avoid exiting the function prematurly. The function will exit early
-  // when all blocks are matched. When no outer fence is discovered the function will always continue to the end.
+  // nestCount는 전체 코드 블록이 ``` 또는 START 블록으로 감싸진 경우 1로 설정됩니다.
+  // 내부 코드 블록이 발견되면 증가하며, 모든 블록이 매칭되면 조기 종료합니다.
+  // 외부 펜스가 없으면 끝까지 계속됩니다.
   let nestCount = 0;
 
   for await (const line of rawLines) {
-
-    
     if (!seenFirstFence) {
       if (shouldRemoveLineBeforeStart(line)) {
-        // Filter out starting ``` or START block
-        continue
+        // 시작 ``` 또는 START 블록을 필터링합니다.
+        continue;
       }
-      // Regardless of a fence or START block start tracking the nesting level
+      // 펜스 또는 START 블록 여부와 상관없이 중첩 레벨을 추적합니다.
       seenFirstFence = true;
       nestCount = 1;
     }
 
     if (nestCount > 0) {
-      // Inside a block including the outer block
+      // 블록 내부(외부 블록 포함)
       const changedEndLine = shouldChangeLineAndStop(line);
       if (typeof changedEndLine === "string") {
-        // Ending a block with just backticks (```) or STOP
+        // ``` 또는 STOP으로 블록 종료
         nestCount--;
         if (nestCount === 0) {
-          // if we are closing the outer block then exit early
-          // only exit early if the outer block was started with a block
-          // it it was text, we will never exit early
+          // 외부 블록을 닫는 경우 조기 종료
+          // 외부 블록이 블록으로 시작한 경우에만 조기 종료
+          // 텍스트로 시작한 경우에는 끝까지 계속
           return;
         } else {
-          // otherwise just yield the line
+          // 그렇지 않으면 라인을 반환
           yield line;
         }
       } else if (line.startsWith("```")) {
-        // Going into a nested codeblock
+        // 중첩 코드 블록 진입
         nestCount++;
         yield line;
       } else {
-        // otherwise just yield the line
+        // 그 외에는 라인을 반환
         yield line;
       }
     }
@@ -390,17 +445,16 @@ export async function* filterCodeBlockLines(rawLines: LineStream): LineStream {
 }
 
 /**
- * Filters out English explanations at the start of a code block.
+ * 코드 블록 시작 부분의 영어 설명을 필터링합니다.
  *
- * @param {LineStream} lines - The input stream of lines.
- * @yields {string} Filtered lines with English explanations removed from the start.
+ * @param {LineStream} lines - 입력 라인 스트림
+ * @yields {string} 시작 부분의 영어 설명이 제거된 라인
  *
  * @description
- * This generator function performs the following tasks:
- * 1. Skips initial blank lines.
- * 2. Removes the first line if it's identified as an English explanation.
- * 3. Removes a subsequent blank line if the first line was an English explanation.
- * 4. Yields all remaining lines.
+ * 1. 처음의 빈 라인을 건너뜁니다.
+ * 2. 첫 번째 라인이 영어 설명이면 제거합니다.
+ * 3. 첫 번째 라인이 영어 설명이었고, 그 다음 라인이 빈 라인이면 제거합니다.
+ * 4. 나머지 라인을 반환합니다.
  */
 export async function* filterEnglishLinesAtStart(lines: LineStream) {
   let i = 0;
@@ -426,9 +480,9 @@ export async function* filterEnglishLinesAtStart(lines: LineStream) {
 }
 
 /**
- * Filters out English explanations at the end of a code block.
- * @param {LineStream} lines - The input stream of lines.
- * @yields {string} Lines up to the end of the code block or start of English explanation.
+ * 코드 블록 끝 부분의 영어 설명을 필터링합니다.
+ * @param {LineStream} lines - 입력 라인 스트림
+ * @yields {string} 코드 블록 끝 또는 영어 설명 시작 전까지의 라인
  */
 export async function* filterEnglishLinesAtEnd(lines: LineStream) {
   let finishedCodeBlock = false;
@@ -444,6 +498,11 @@ export async function* filterEnglishLinesAtEnd(lines: LineStream) {
   }
 }
 
+/**
+ * LineStream에서 첫 번째 빈 줄을 건너뜁니다.
+ * @param {LineStream} lines - 입력 라인 스트림
+ * @yields {string} 첫 번째 빈 줄이 제거된 라인
+ */
 export async function* filterLeadingNewline(lines: LineStream): LineStream {
   let firstLine = true;
   for await (const line of lines) {
@@ -456,9 +515,9 @@ export async function* filterLeadingNewline(lines: LineStream): LineStream {
 }
 
 /**
- * Removes leading indentation from the first line of a CodeLlama output.
- * @param {LineStream} lines - The input stream of lines.
- * @yields {string} Lines with the first line's indentation fixed if necessary.
+ * CodeLlama 출력의 첫 번째 라인의 들여쓰기를 제거합니다.
+ * @param {LineStream} lines - 입력 라인 스트림
+ * @yields {string} 첫 번째 라인의 들여쓰기가 수정된 라인
  */
 export async function* fixCodeLlamaFirstLineIndentation(lines: LineStream) {
   let isFirstLine = true;
@@ -474,19 +533,17 @@ export async function* fixCodeLlamaFirstLineIndentation(lines: LineStream) {
 }
 
 /**
- * Filters leading and trailing blank line insertions from a stream of diff lines.
+ * diff 라인 스트림에서 앞뒤의 빈 라인 삽입을 필터링합니다.
  *
- * @param {AsyncGenerator<DiffLine>} diffLines - An async generator that yields DiffLine objects.
- * @yields {DiffLine} Filtered DiffLine objects, with leading and trailing blank line insertions removed.
+ * @param {AsyncGenerator<DiffLine>} diffLines - DiffLine 객체를 반환하는 async generator
+ * @yields {DiffLine} 앞뒤의 빈 라인 삽입이 제거된 DiffLine 객체
  *
  * @description
- * This generator function processes a stream of diff lines, removing leading and trailing
- * blank line insertions. It performs the following tasks:
- * 1. Skips the first blank line insertion if it occurs at the beginning.
- * 2. Buffers subsequent blank line insertions.
- * 3. Yields buffered blank lines when a non-blank insertion is encountered.
- * 4. Clears the buffer when an old line is encountered.
- * 5. Yields all non-blank insertions and old lines.
+ * 1. 시작 부분의 빈 라인 삽입을 건너뜁니다.
+ * 2. 이후 빈 라인 삽입은 버퍼링합니다.
+ * 3. 빈 라인이 아닌 삽입이 등장하면 버퍼된 빈 라인을 반환합니다.
+ * 4. 기존(old) 라인이 등장하면 버퍼를 비웁니다.
+ * 5. 빈 라인이 아닌 삽입 및 기존 라인은 모두 반환합니다.
  */
 export async function* filterLeadingAndTrailingNewLineInsertion(
   diffLines: AsyncGenerator<DiffLine>,
@@ -521,17 +578,15 @@ export async function* filterLeadingAndTrailingNewLineInsertion(
 }
 
 /**
- * Filters a LineStream, stopping when a line repeats more than a specified number of times.
+ * 라인이 지정된 횟수 이상 반복되면 LineStream을 중단합니다.
  *
- * @param {LineStream} lines - The input stream of lines to filter.
- * @param {() => void} fullStop - Function to call when stopping the stream.
- * @yields {string} Filtered lines until excessive repetition is detected.
+ * @param {LineStream} lines - 필터링할 입력 라인 스트림
+ * @param {() => void} fullStop - 스트림을 중단할 때 호출할 함수
+ * @yields {string} 과도한 반복이 감지되기 전까지의 라인
  *
  * @description
- * This function yields lines from the input stream until a line is repeated
- * for a maximum of 3 consecutive times. When this limit is reached, it calls
- * the fullStop function and stops yielding. Only the first of the repeating
- * lines is yieled.
+ * 동일한 라인이 최대 3회 연속 반복되면 fullStop을 호출하고 중단합니다.
+ * 반복되는 라인 중 첫 번째 라인만 반환합니다.
  */
 export async function* stopAtRepeatingLines(
   lines: LineStream,
@@ -557,8 +612,8 @@ export async function* stopAtRepeatingLines(
 }
 
 /**
- * Pass-through, except logs the total output at the end
- * @param lines a `LineStream`
+ * 패스스루, 마지막에 전체 출력을 로그로 남깁니다.
+ * @param lines `LineStream`
  */
 export async function* logLines(
   lines: LineStream,
@@ -572,6 +627,14 @@ export async function* logLines(
   console.log(`${prefix}:\n${linesToLog.join("\n")}\n\n`);
 }
 
+/**
+ * 지정된 시간(ms) 동안 LineStream에서 라인을 출력합니다.
+ * 첫 번째 비어 있지 않은 라인이 출력되면 중단합니다.
+ *
+ * @param {LineStream} lines - 입력 라인 스트림
+ * @param {number} ms - 대기 시간 (밀리초)
+ * @yields {string} 지정된 시간 동안의 라인
+ */
 export async function* showWhateverWeHaveAtXMs(
   lines: LineStream,
   ms: number,
@@ -593,6 +656,13 @@ export async function* showWhateverWeHaveAtXMs(
   }
 }
 
+/**
+ * LineStream에서 연속된 빈 줄을 제거합니다.
+ * 첫 번째 빈 줄은 허용되지만, 두 번째 빈 줄은 제거합니다.
+ *
+ * @param {LineStream} lines - 입력 라인 스트림
+ * @yields {string} 연속된 빈 줄이 제거된 라인
+ */
 export async function* noDoubleNewLine(lines: LineStream): LineStream {
   let isFirstLine = true;
 

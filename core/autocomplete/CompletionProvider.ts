@@ -39,6 +39,14 @@ export class CompletionProvider {
   private loggingService = new AutocompleteLoggingService();
   private contextRetrievalService: ContextRetrievalService;
 
+  /**
+   * CompletionProvider 생성자입니다.
+   * @param configHandler - 설정 핸들러 인스턴스입니다.
+   * @param ide - IDE 인스턴스입니다.
+   * @param _injectedGetLlm - LLM을 반환하는 함수입니다.
+   * @param _onError - 오류 발생 시 호출되는 함수입니다.
+   * @param getDefinitionsFromLsp - LSP에서 정의를 가져오는 함수입니다.
+   */
   constructor(
     private readonly configHandler: ConfigHandler,
     private readonly ide: IDE,
@@ -50,6 +58,10 @@ export class CompletionProvider {
     this.contextRetrievalService = new ContextRetrievalService(this.ide);
   }
 
+  /**
+   * LLM을 준비합니다.
+   * @returns 준비된 LLM 객체 또는 undefined를 반환하는 Promise입니다.
+   */
   private async _prepareLlm(): Promise<ILLM | undefined> {
     const llm = await this._injectedGetLlm();
 
@@ -85,6 +97,11 @@ export class CompletionProvider {
     return llm;
   }
 
+  /**
+   * 자동완성 요청을 처리합니다.
+   * @param input - 자동완성 입력 객체입니다.
+   * @returns 자동완성 결과(AutocompleteOutcome) 또는 undefined를 반환하는 Promise입니다.
+   */
   private onError(e: any) {
     if (
       ERRORS_TO_IGNORE.some((err) =>
@@ -101,10 +118,18 @@ export class CompletionProvider {
     }
   }
 
+  /**
+   * 자동완성 요청을 취소합니다.
+   * 현재 진행 중인 자동완성 요청이 있다면 이를 취소합니다.
+   */
   public cancel() {
     this.loggingService.cancel();
   }
 
+  /**
+   * 자동완성 결과를 수락합니다.
+   * @param completionId - 자동완성 요청의 고유 ID입니다.
+   */
   public accept(completionId: string) {
     const outcome = this.loggingService.accept(completionId);
     if (!outcome) {
@@ -116,10 +141,19 @@ export class CompletionProvider {
     );
   }
 
+  /**
+   * 자동완성 결과를 표시된 것으로 마크합니다.
+   * @param completionId - 자동완성 요청의 고유 ID입니다.
+   * @param outcome - 자동완성 결과 객체입니다.
+   */
   public markDisplayed(completionId: string, outcome: AutocompleteOutcome) {
     this.loggingService.markDisplayed(completionId, outcome);
   }
 
+  /**
+   * 자동완성 옵션을 가져옵니다.
+   * @returns 자동완성 옵션 객체입니다.
+   */
   private async _getAutocompleteOptions() {
     const { config } = await this.configHandler.loadConfig();
     const options = {
@@ -129,6 +163,12 @@ export class CompletionProvider {
     return options;
   }
 
+  /**
+   * 입력에 기반하여 인라인 자동완성 항목을 제공합니다.
+   * @param input - 인라인 자동완성을 제공할 입력 값입니다.
+   * @param token - 작업을 취소할 수 있는 선택적 AbortSignal입니다.
+   * @returns 자동완성 결과(AutocompleteOutcome) 또는 자동완성이 제공되지 않으면 undefined를 반환하는 Promise입니다.
+   */
   public async provideInlineCompletionItems(
     input: AutocompleteInput,
     token: AbortSignal | undefined,

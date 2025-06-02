@@ -5,6 +5,13 @@ import { getConfigJsonPath } from "../../util/paths";
 import { findUriInDirs } from "../../util/uri";
 import { HelperVars } from "../util/HelperVars";
 
+/**
+ * 현재 파일이 자동완성 비활성화 설정에 해당하는지 확인합니다.
+ * @param currentFilepath - 현재 파일의 경로
+ * @param disableInFiles - 자동완성 비활성화 설정이 포함된 파일 목록
+ * @param ide - IDE 인스턴스
+ * @returns {Promise<boolean>} - 파일이 비활성화 설정에 해당하면 true, 아니면 false
+ */
 async function isDisabledForFile(
   currentFilepath: string,
   disableInFiles: string[] | undefined,
@@ -26,6 +33,11 @@ async function isDisabledForFile(
   }
 }
 
+/**
+ * 언어별로 자동완성 사전 필터링이 필요한지 확인합니다.
+ * @param helper - 헬퍼 변수들
+ * @returns {Promise<boolean>} - 언어별 필터링이 필요하면 true, 아니면 false
+ */
 async function shouldLanguageSpecificPrefilter(helper: HelperVars) {
   const line = helper.fileLines[helper.pos.line] ?? "";
   for (const endOfLine of helper.lang.endOfLine) {
@@ -35,6 +47,15 @@ async function shouldLanguageSpecificPrefilter(helper: HelperVars) {
   }
 }
 
+/**
+ * 자동완성 사전 필터링을 수행합니다.
+ * - config.json 파일이나 비활성화된 파일에서는 자동완성을 제공하지 않습니다.
+ * - 빈 파일이나 untitled 파일에서는 자동완성을 제공하지 않습니다.
+ * - 언어별로 사전 필터링이 필요한 경우 true를 반환합니다.
+ * @param helper - 헬퍼 변수들
+ * @param ide - IDE 인스턴스
+ * @returns {Promise<boolean>} - 사전 필터링이 필요하면 true, 아니면 false
+ */
 export async function shouldPrefilter(
   helper: HelperVars,
   ide: IDE,

@@ -12,10 +12,19 @@ export const BRACKETS_REVERSE: { [key: string]: string } = {
  * We follow the policy of only completing bracket pairs that we started
  * But sometimes we started the pair in a previous autocomplete suggestion
  */
+/**
+ * BracketMatchingService는 자동완성에서 괄호 매칭을 처리하는 서비스입니다.
+ */
 export class BracketMatchingService {
   private openingBracketsFromLastCompletion: string[] = [];
   private lastCompletionFile: string | undefined = undefined;
 
+  /**
+   * handleAcceptedCompletion은 사용자가 자동완성 결과를 수락했을 때 호출됩니다.
+   * 이 메서드는 자동완성 결과에서 괄호 매칭을 처리합니다.
+   * @param completion - 사용자가 수락한 자동완성 결과 문자열입니다.
+   * @param filepath - 자동완성 결과가 발생한 파일의 경로입니다.
+   */
   handleAcceptedCompletion(completion: string, filepath: string) {
     this.openingBracketsFromLastCompletion = [];
     const stack: string[] = [];
@@ -38,6 +47,15 @@ export class BracketMatchingService {
     this.lastCompletionFile = filepath;
   }
 
+  /**
+   * stopOnUnmatchedClosingBracket는 자동완성 스트림에서 닫는 괄호가 일치하지 않는 경우
+   * 스트림을 중지하고 현재까지의 결과를 반환합니다.
+   * @param stream - 자동완성 스트림입니다.
+   * @param prefix - 현재 입력된 접두사입니다.
+   * @param suffix - 현재 입력된 접미사입니다.
+   * @param filepath - 자동완성 결과가 발생한 파일의 경로입니다.
+   * @param multiline - 멀티라인 자동완성 여부입니다.
+   */
   async *stopOnUnmatchedClosingBracket(
     stream: AsyncGenerator<string>,
     prefix: string,

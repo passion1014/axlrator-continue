@@ -5,6 +5,18 @@ import { getUriFileExtension } from "../../util/uri";
 
 import { AutocompleteOutcome } from "./types";
 
+/**
+ * 자동완성 로깅 서비스를 제공하는 클래스입니다.
+ *
+ * 각 completionId에 대해 AbortController, 거절 타임아웃, 결과(AutocompleteOutcome)를 관리합니다.
+ * 자동완성 결과가 표시, 수락, 거절되는 시점에 따라 로깅 및 타임아웃 처리를 담당합니다.
+ *
+ * @remarks
+ * - 자동완성 결과가 표시되면 일정 시간(기본 10초) 내에 수락되지 않으면 거절로 간주하여 로깅합니다.
+ * - 이전에 표시된 자동완성 결과와 현재 결과가 연속된 경우, 이전 결과의 거절 타임아웃을 취소합니다.
+ * - 결과 수락, 취소, 표시, 전체 취소 등 다양한 상태 변화를 처리합니다.
+ * //TODO:KJM https://app.posthog.com로 로그 전송한다. 불필요 해보이기때문에 나중에 제거할 예정
+ */
 export class AutocompleteLoggingService {
   // Key is completionId
   private _abortControllers = new Map<string, AbortController>();
@@ -13,16 +25,30 @@ export class AutocompleteLoggingService {
   _lastDisplayedCompletion: { id: string; displayedAt: number } | undefined =
     undefined;
 
+  /**
+   * 자동완성 요청에 대한 AbortController를 생성합니다.
+   * @param completionId
+   * @returns
+   */
   public createAbortController(completionId: string): AbortController {
     const abortController = new AbortController();
     this._abortControllers.set(completionId, abortController);
     return abortController;
   }
 
+  /**
+   * 자동완성 요청에 대한 AbortController를 가져옵니다.
+   * @param completionId - 자동완성 요청의 고유 ID입니다.
+   * @returns 해당 ID에 대한 AbortController 객체입니다. 없으면 undefined를 반환합니다.
+   */
   public deleteAbortController(completionId: string) {
     this._abortControllers.delete(completionId);
   }
 
+  /**
+   * 자동완성 요청을 취소합니다.
+   * 모든 AbortController를 abort하고, 관련된 타임아웃과 결과를 정리합니다.
+   */
   public cancel() {
     this._abortControllers.forEach((abortController, id) => {
       abortController.abort();
@@ -30,6 +56,11 @@ export class AutocompleteLoggingService {
     this._abortControllers.clear();
   }
 
+  /**
+   * 자동완성 결과를 수락합니다.
+   * @param completionId - 자동완성 요청의 고유 ID입니다.
+   * @returns 수락된 자동완성 결과 객체입니다. 없으면 undefined를 반환합니다.
+   */
   public accept(completionId: string): AutocompleteOutcome | undefined {
     if (this._logRejectionTimeouts.has(completionId)) {
       clearTimeout(this._logRejectionTimeouts.get(completionId));
@@ -45,6 +76,10 @@ export class AutocompleteLoggingService {
     }
   }
 
+  /**
+   * 자동완성 결과를 거절합니다.
+   * @param completionId - 자동완성 요청의 고유 ID입니다.
+   */
   public cancelRejectionTimeout(completionId: string) {
     if (this._logRejectionTimeouts.has(completionId)) {
       clearTimeout(this._logRejectionTimeouts.get(completionId)!);
@@ -56,6 +91,11 @@ export class AutocompleteLoggingService {
     }
   }
 
+  /**
+   * 자동완성 결과가 표시되었음을 마크합니다.
+   * @param completionId - 자동완성 요청의 고유 ID입니다.
+   * @param outcome - 자동완성 결과 객체입니다.
+   */
   public markDisplayed(completionId: string, outcome: AutocompleteOutcome) {
     const logRejectionTimeout = setTimeout(() => {
       // Wait 10 seconds, then assume it wasn't accepted
@@ -95,6 +135,10 @@ export class AutocompleteLoggingService {
     };
   }
 
+  /**
+   * 자동완성 결과를 로깅합니다. [https://app.posthog.com로 로그 전송]
+   * @param outcome - 자동완성 결과 객체입니다.
+   */
   private logAutocompleteOutcome(outcome: AutocompleteOutcome) {
     void DataLogger.getInstance().logDevData({
       name: "autocomplete",

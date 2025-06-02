@@ -17,6 +17,9 @@ import {
 
 const STOP_AT_PATTERNS = ["diff --git"];
 
+/**
+ * StreamTransformPipeline 클래스는 스트림 변환 파이프라인을 구현합니다.
+ */
 export class StreamTransformPipeline {
   async *transform(
     generator: AsyncGenerator<string>,
@@ -74,7 +77,6 @@ export class StreamTransformPipeline {
 
     const timeoutValue = helper.options.modelTimeout;
 
-
     lineGenerator = showWhateverWeHaveAtXMs(lineGenerator, timeoutValue!);
 
     const finalGenerator = streamWithNewLines(lineGenerator);
@@ -83,6 +85,11 @@ export class StreamTransformPipeline {
     }
   }
 
+  /**
+   * 커서 아래의 줄을 가져옵니다.
+   * @param helper - 헬퍼 변수들
+   * @returns 커서 아래의 줄 문자열
+   */
   private getLineBelowCursor(helper: HelperVars): string {
     let lineBelowCursor = "";
     let i = 1;

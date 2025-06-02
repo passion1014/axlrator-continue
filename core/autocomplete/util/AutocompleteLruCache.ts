@@ -8,12 +8,20 @@ import {
 } from "../../indexing/refreshIndex.js";
 import { getTabAutocompleteCacheSqlitePath } from "../../util/paths.js";
 
+/**
+ * AutocompleteLruCache는 자동완성 접두사와 완성을 캐시하는 LRU(Least Recently Used) 캐시입니다.
+ * 이 캐시는 SQLite 데이터베이스를 사용하여 구현됩니다.
+ */
 export class AutocompleteLruCache {
   private static capacity = 1000;
   private mutex = new Mutex();
 
   constructor(private db: DatabaseConnection) {}
 
+  /**
+   * AutocompleteLruCache 인스턴스를 생성하고 데이터베이스를 초기화합니다.
+   * @returns AutocompleteLruCache 인스턴스
+   */
   static async get(): Promise<AutocompleteLruCache> {
     const db = await open({
       filename: getTabAutocompleteCacheSqlitePath(),
@@ -33,6 +41,9 @@ export class AutocompleteLruCache {
     return new AutocompleteLruCache(db);
   }
 
+  /**
+   * AutocompleteLruCache 인스턴스를 닫고 데이터베이스 연결을 종료합니다.
+   */
   async get(prefix: string): Promise<string | undefined> {
     // NOTE: Right now prompts with different suffixes will be considered the same
 
@@ -66,6 +77,11 @@ export class AutocompleteLruCache {
     return undefined;
   }
 
+  /**
+   * 주어진 접두사에 대한 완성을 캐시에 저장합니다.
+   * @param prefix - 자동완성 접두사
+   * @param completion - 자동완성 결과
+   */
   async put(prefix: string, completion: string) {
     const release = await this.mutex.acquire();
 

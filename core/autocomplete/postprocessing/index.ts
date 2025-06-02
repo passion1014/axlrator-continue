@@ -3,6 +3,12 @@ import { lineIsRepeated } from "../filtering/streamTransforms/lineStream.js";
 
 import type { ILLM } from "../../index.js";
 
+/**
+ * 주어진 completion이 prefix의 마지막 줄을 대체하는지 여부를 확인합니다.
+ * @param completion
+ * @param prefix
+ * @returns
+ */
 function rewritesLineAbove(completion: string, prefix: string): boolean {
   const lineAbove = prefix
     .split("\n")
@@ -22,6 +28,13 @@ function rewritesLineAbove(completion: string, prefix: string): boolean {
 }
 
 const MAX_REPETITION_FREQ_TO_CHECK = 3;
+
+/**
+ * 주어진 completion이 극단적인 반복인지 여부를 확인합니다.
+ * 극단적인 반복은 첫 번째 줄과 이후 몇 줄 사이에 긴 공통 부분이 있는 경우를 의미합니다.
+ * @param completion
+ * @returns
+ */
 function isExtremeRepetition(completion: string): boolean {
   const lines = completion.split("\n");
   if (lines.length < 6) {
@@ -43,15 +56,38 @@ function isExtremeRepetition(completion: string): boolean {
   }
   return false;
 }
+
+/**
+ * 주어진 completion이 공백 문자만 포함하는지 여부를 확인합니다.
+ * @param completion
+ * @returns
+ */
 function isOnlyWhitespace(completion: string): boolean {
   const whitespaceRegex = /^[\s]+$/;
   return whitespaceRegex.test(completion);
 }
 
+/**
+ * 주어진 completion이 빈 문자열인지 여부를 확인합니다.
+ * @param completion
+ * @returns
+ */
 function isBlank(completion: string): boolean {
   return completion.trim().length === 0;
 }
 
+/**
+ * 주어진 completion을 후처리합니다.
+ * - 빈 문자열이나 공백만 포함하는 경우 undefined를 반환합니다.
+ * - prefix의 마지막 줄을 대체하는 경우 undefined를 반환합니다.
+ * - 극단적인 반복이 있는 경우 undefined를 반환합니다.
+ * - Codestral, Mercury, Granite 모델에 대한 특수 처리를 수행합니다.
+ * @param completion - LLM에서 받은 completion 문자열입니다.
+ * @param llm - LLM 인스턴스입니다.
+ * @param prefix - 현재 입력의 접두사입니다.
+ * @param suffix - 현재 입력의 접미사입니다.
+ * @returns 후처리된 completion 문자열 또는 undefined
+ */
 export function postprocessCompletion({
   completion,
   llm,
