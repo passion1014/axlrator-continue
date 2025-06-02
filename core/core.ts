@@ -306,11 +306,12 @@ export class Core {
       }
     });
 
+    // Abort 요청 처리: 메시지 ID로 AbortController를 취소합니다.
     on("abort", (msg) => {
       this.abortById(msg.data ?? msg.messageId);
     });
 
-    // Ping
+    // Ping 요청 처리: ping 메시지에 대해 pong을 반환합니다.
     on("ping", (msg) => {
       if (msg.data !== "ping") {
         throw new Error("ping message incorrect");
@@ -318,67 +319,70 @@ export class Core {
       return "pong";
     });
 
-    // History
+    // 히스토리 관련 메시지 핸들러
+    // 히스토리 목록 조회
     on("history/list", (msg) => {
       return historyManager.list(msg.data);
     });
-
+    // 히스토리 삭제
     on("history/delete", (msg) => {
       historyManager.delete(msg.data.id);
     });
-
+    // 히스토리 로드
     on("history/load", (msg) => {
       return historyManager.load(msg.data.id);
     });
-
+    // 히스토리 저장
     on("history/save", (msg) => {
       historyManager.save(msg.data);
     });
-
+    // 히스토리 전체 삭제
     on("history/clear", (msg) => {
       historyManager.clearAll();
     });
 
+    // 개발 데이터 로깅
     on("devdata/log", async (msg) => {
       void DataLogger.getInstance().logDevData(msg.data);
     });
 
-    // Config
+    // Config 관련 메시지 핸들러
+    // 모델 추가
     on("config/addModel", (msg) => {
       const model = msg.data.model;
       addModel(model, msg.data.role);
       void this.configHandler.reloadConfig();
     });
-
+    // 모델 삭제
     on("config/deleteModel", (msg) => {
       deleteModel(msg.data.title);
       void this.configHandler.reloadConfig();
     });
-
+    // 새 프롬프트 파일 생성
     on("config/newPromptFile", async (msg) => {
       const { config } = await this.configHandler.loadConfig();
       await createNewPromptFileV2(this.ide, config?.experimental?.promptPath);
       await this.configHandler.reloadConfig();
     });
-
+    // 로컬 워크스페이스 블록 추가
     on("config/addLocalWorkspaceBlock", async (msg) => {
       await createNewWorkspaceBlockFile(this.ide, msg.data.blockType);
       await this.configHandler.reloadConfig();
     });
-
+    // 프로필 열기
     on("config/openProfile", async (msg) => {
       await this.configHandler.openConfigProfile(msg.data.profileId);
     });
-
+    // Config 리로드
     on("config/reload", async (msg) => {
       void this.configHandler.reloadConfig();
       return await this.configHandler.getSerializedConfig();
     });
-
+    // IDE 설정 업데이트
     on("config/ideSettingsUpdate", async (msg) => {
       await this.configHandler.updateIdeSettings(msg.data);
     });
-
+    // 프로필 목록 새로고침
     on("config/refreshProfiles", async (msg) => {
       const { selectOrgId, selectProfileId } = msg.data ?? {};
       await this.configHandler.refreshAll();
@@ -388,13 +392,13 @@ export class Core {
         await this.configHandler.setSelectedProfileId(selectProfileId);
       }
     });
-
+    // 공유 Config 업데이트
     on("config/updateSharedConfig", async (msg) => {
       const newSharedConfig = this.globalContext.updateSharedConfig(msg.data);
       await this.configHandler.reloadConfig();
       return newSharedConfig;
     });
-
+    // 선택된 모델 업데이트
     on("config/updateSelectedModel", async (msg) => {
       const newSelectedModels = this.globalContext.updateSelectedModel(
         msg.data.profileId,
@@ -405,6 +409,7 @@ export class Core {
       return newSelectedModels;
     });
 
+    // 컨트롤 플레인 URL 열기
     on("controlPlane/openUrl", async (msg) => {
       const env = await getControlPlaneEnv(this.ide.getIdeSettings());
       let url = `${env.APP_URL}${msg.data.path}`;
@@ -414,22 +419,25 @@ export class Core {
       await this.messenger.request("openUrl", url);
     });
 
+    // MCP 서버 리로드
     on("mcp/reloadServer", async (msg) => {
       await MCPManagerSingleton.getInstance().refreshConnection(msg.data.id);
     });
-    // Context providers
+
+    // Context provider 관련 메시지 핸들러
+    // 문서 추가 및 인덱싱
     on("context/addDocs", async (msg) => {
       void this.docsService.indexAndAdd(msg.data);
     });
-
+    // 문서 제거
     on("context/removeDocs", async (msg) => {
       await this.docsService.delete(msg.data.startUrl);
     });
-
+    // 문서 인덱싱
     on("context/indexDocs", async (msg) => {
       await this.docsService.syncDocsWithPrompt(msg.data.reIndex);
     });
-
+    // 서브메뉴 아이템 로드
     on("context/loadSubmenuItems", async (msg) => {
       const { config } = await this.configHandler.loadConfig();
       if (!config) {
@@ -451,14 +459,14 @@ export class Core {
         return [];
       }
     });
-
+    // 컨텍스트 아이템 조회
     on("context/getContextItems", this.getContextItems.bind(this));
-
+    // 파일 심볼 조회
     on("context/getSymbolsForFiles", async (msg) => {
       const { uris } = msg.data;
       return await getSymbolsForManyFiles(uris, this.ide);
     });
-
+    // 직렬화된 프로필 정보 조회
     on("config/getSerializedProfileInfo", async (msg) => {
       return {
         result: await this.configHandler.getSerializedConfig(),
@@ -469,6 +477,7 @@ export class Core {
       };
     });
 
+    // 클립보드 캐시 추가
     on("clipboardCache/add", (msg) => {
       const added = clipboardCache.add(uuidv4(), msg.data.content);
       if (added) {
@@ -478,6 +487,8 @@ export class Core {
       }
     });
 
+    // LLM 관련 메시지 핸들러
+    // 채팅 스트림
     on("llm/streamChat", (msg) => {
       const abortController = this.addMessageAbortController(msg.messageId);
       return llmStreamChat(
@@ -488,7 +499,7 @@ export class Core {
         this.messenger,
       );
     });
-
+    // LLM 완성
     on("llm/complete", async (msg) => {
       const { config } = await this.configHandler.loadConfig();
       const model = config?.selectedModelByRole.chat;
@@ -504,16 +515,18 @@ export class Core {
       );
       return completion;
     });
+    // 모델 목록 조회
     on("llm/listModels", this.handleListModels.bind(this));
 
-    // Provide messenger to utils so they can interact with GUI + state
+    // 유틸리티에 메신저 제공
     TTS.messenger = this.messenger;
     ChatDescriber.messenger = this.messenger;
 
+    // TTS 종료
     on("tts/kill", async () => {
       void TTS.kill();
     });
-
+    // 채팅 설명 요청
     on("chatDescriber/describe", async (msg) => {
       const currentModel = (await this.configHandler.loadConfig()).config
         ?.selectedModelByRole.chat;
@@ -525,7 +538,8 @@ export class Core {
       return await ChatDescriber.describe(currentModel, {}, msg.data.text);
     });
 
-    // Autocomplete
+    // 자동완성 관련 메시지 핸들러
+    // 인라인 자동완성 요청
     on("autocomplete/complete", async (msg) => {
       const outcome =
         await this.completionProvider.provideInlineCompletionItems(
@@ -534,13 +548,16 @@ export class Core {
         );
       return outcome ? [outcome.completion] : [];
     });
+    // 자동완성 수락
     on("autocomplete/accept", async (msg) => {
       this.completionProvider.accept(msg.data.completionId);
     });
+    // 자동완성 취소
     on("autocomplete/cancel", async (msg) => {
       this.completionProvider.cancel();
     });
 
+    // diff 라인 스트림 처리
     on("streamDiffLines", async (msg) => {
       const { config } = await this.configHandler.loadConfig();
       if (!config) {
@@ -578,24 +595,31 @@ export class Core {
       });
     });
 
+    // apply 취소
     on("cancelApply", async (msg) => {
       const abortManager = StreamAbortManager.getInstance();
       abortManager.clear();
     });
 
+    // 온보딩 완료 처리
     on("completeOnboarding", this.handleCompleteOnboarding.bind(this));
-
+    // 자동완성 모델 추가
     on("addAutocompleteModel", this.handleAddAutocompleteModel.bind(this));
 
+    // 통계 관련 메시지 핸들러
+    // 일별 토큰 수 조회
     on("stats/getTokensPerDay", async (msg) => {
       const rows = await DevDataSqliteDb.getTokensPerDay();
       return rows;
     });
+    // 모델별 토큰 수 조회
     on("stats/getTokensPerModel", async (msg) => {
       const rows = await DevDataSqliteDb.getTokensPerModel();
       return rows;
     });
 
+    // 인덱싱 관련 메시지 핸들러
+    // 강제 리인덱싱
     on("index/forceReIndex", async ({ data }) => {
       const { config } = await this.configHandler.loadConfig();
       if (!config || config.disableIndexing) {
@@ -606,7 +630,6 @@ export class Core {
         const codebaseIndexer = await this.codebaseIndexerPromise;
         await codebaseIndexer.clearIndexes();
       }
-
       const dirs = data?.dirs ?? (await this.ide.getWorkspaceDirs());
       await this.refreshCodebaseIndex(dirs);
     });
@@ -961,8 +984,8 @@ export class Core {
   }
 
   /**
-   * 주어진 디렉토리들에 대해 코드베이스 인덱스를 새로 고칩니다.
-   * @param uris 인덱스를 새로 고칠 디렉토리들입니다.
+   * 자동완성 모델을 추가합니다.
+   * @param msg 메시지 객체
    */
   private async handleCompleteOnboarding(msg: Message<{ mode: string }>) {
     const mode = msg.data.mode;
@@ -997,9 +1020,8 @@ export class Core {
   }
 
   /**
-   * 주어진 메시지에 대한 컨텍스트 아이템을 가져옵니다.
-   * @param msg 메시지 객체입니다.
-   * @returns 컨텍스트 아이템의 배열입니다.
+   * 코드베이스 인덱스를 새로 고칩니다.
+   * @param dirs 인덱싱할 디렉토리 목록
    */
   private getContextItems = async (
     msg: Message<{
