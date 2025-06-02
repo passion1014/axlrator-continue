@@ -633,10 +633,12 @@ export class Core {
       const dirs = data?.dirs ?? (await this.ide.getWorkspaceDirs());
       await this.refreshCodebaseIndex(dirs);
     });
+    // 인덱싱 일시정지 상태를 설정합니다. (코드베이스 인덱싱의 일시정지/재개)
     on("index/setPaused", (msg) => {
       this.globalContext.update("indexingPaused", msg.data);
       this.indexingPauseToken.paused = msg.data;
     });
+    // 인덱싱 진행 표시줄이 초기화될 때 호출됩니다. 이전 상태가 있으면 해당 상태로 표시를 갱신합니다.
     on("index/indexingProgressBarInitialized", async (msg) => {
       // Triggered when progress bar is initialized.
       // If a non-default state has been stored, update the indexing display to that state
@@ -648,7 +650,7 @@ export class Core {
       }
     });
 
-    // File changes - TODO - remove remaining logic for these from IDEs where possible
+    // 파일 변경 이벤트를 처리합니다. (파일이 변경되었을 때 인덱싱 및 서브메뉴 갱신)
     on("files/changed", this.handleFilesChanged.bind(this));
     const refreshIfNotIgnored = async (uris: string[]) => {
       const toRefresh: string[] = [];
@@ -669,6 +671,7 @@ export class Core {
       }
     };
 
+    // 파일이 생성되었을 때 인덱싱 및 로컬 어시스턴트 파일 생성 시 전체 어시스턴트 목록을 갱신합니다.
     on("files/created", async ({ data }) => {
       if (data?.uris?.length) {
         walkDirCache.invalidate();
@@ -687,6 +690,7 @@ export class Core {
       }
     });
 
+    // 파일이 삭제되었을 때 인덱싱 및 서브메뉴 갱신을 처리합니다.
     on("files/deleted", async ({ data }) => {
       if (data?.uris?.length) {
         walkDirCache.invalidate();
@@ -694,6 +698,7 @@ export class Core {
       }
     });
 
+    // 파일이 닫혔을 때 해당 파일의 닫힘 이벤트를 전달합니다.
     on("files/closed", async ({ data }) => {
       if (data.uris) {
         this.messenger.send("didCloseFiles", {
@@ -702,36 +707,43 @@ export class Core {
       }
     });
 
+    // 파일이 열렸을 때의 이벤트 핸들러(현재는 동작 없음)
     on("files/opened", async () => {});
 
-    // Docs, etc. indexing
+    // 문서(Docs) 인덱싱: 특정 문서의 재인덱싱을 요청합니다.
     on("indexing/reindex", async (msg) => {
       if (msg.data.type === "docs") {
         void this.docsService.reindexDoc(msg.data.id);
       }
     });
+    // 문서(Docs) 인덱싱 중단을 요청합니다.
     on("indexing/abort", async (msg) => {
       if (msg.data.type === "docs") {
         this.docsService.abort(msg.data.id);
       }
     });
+    // 문서(Docs) 인덱싱 일시정지(현재는 동작 없음)
     on("indexing/setPaused", async (msg) => {
       if (msg.data.type === "docs") {
       }
     });
+    // 문서(Docs) 상태 초기화 요청을 처리합니다.
     on("docs/initStatuses", async (msg) => {
       void this.docsService.initStatuses();
     });
+    // 특정 문서(Docs)의 상세 정보를 요청합니다.
     on("docs/getDetails", async (msg) => {
       return await this.docsService.getDetails(msg.data.startUrl);
     });
 
+    // 선택된 프로필이 변경되었을 때 처리합니다.
     on("didChangeSelectedProfile", async (msg) => {
       if (msg.data.id) {
         await this.configHandler.setSelectedProfileId(msg.data.id);
       }
     });
 
+    // 선택된 조직(Org)이 변경되었을 때 처리합니다.
     on("didChangeSelectedOrg", async (msg) => {
       if (msg.data.id) {
         await this.configHandler.setSelectedOrgId(
@@ -741,6 +753,7 @@ export class Core {
       }
     });
 
+    // 컨트롤 플레인 세션 정보가 변경되었을 때 세션 정보를 갱신합니다.
     on("didChangeControlPlaneSessionInfo", async (msg) => {
       this.messenger.send("sessionUpdate", {
         sessionInfo: msg.data.sessionInfo,
@@ -750,6 +763,7 @@ export class Core {
       );
     });
 
+    // 인증 URL을 요청합니다. (토큰 발급 페이지 등)
     on("auth/getAuthUrl", async (msg) => {
       const url = await getAuthUrlForTokenPage(
         ideSettingsPromise,
@@ -758,6 +772,7 @@ export class Core {
       return { url };
     });
 
+    // 활성 텍스트 에디터가 변경되었을 때 최근 편집 파일 캐시에 추가합니다.
     on("didChangeActiveTextEditor", async ({ data: { filepath } }) => {
       try {
         const ignore = await shouldIgnore(filepath, this.ide);
@@ -771,6 +786,7 @@ export class Core {
       }
     });
 
+    // 툴 호출 요청을 처리합니다. (툴 실행 및 결과 반환)
     on("tools/call", async ({ data: { toolCall } }) => {
       const { config } = await this.configHandler.loadConfig();
       if (!config) {
@@ -808,15 +824,16 @@ export class Core {
       });
     });
 
+    // 컨텍스트 아이템이 LLM의 컨텍스트 길이보다 큰지 확인합니다.
     on("isItemTooBig", async ({ data: { item } }) => {
       return this.isItemTooBig(item);
     });
 
-    // Process state handlers
+    // 프로세스를 백그라운드로 표시합니다. (툴 실행 상태 관리)
     on("process/markAsBackgrounded", async ({ data: { toolCallId } }) => {
       markProcessAsBackgrounded(toolCallId);
     });
-
+    // 프로세스가 백그라운드 상태인지 확인합니다.
     on(
       "process/isBackgrounded",
       async ({ data: { toolCallId }, messageId }) => {

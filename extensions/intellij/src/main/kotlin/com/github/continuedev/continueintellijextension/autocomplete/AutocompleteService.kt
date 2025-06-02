@@ -50,7 +50,7 @@ fun Editor.addInlayElement(
     }
 }
 
-@Service(Service.Level.PROJECT)
+
 /**
  * AutocompleteService는 에디터에서 자동완성 후보를 관리하고 렌더링하는 서비스입니다.
  *
