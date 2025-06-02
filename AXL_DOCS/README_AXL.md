@@ -37,3 +37,21 @@ binary: core의 tyscript code를 바이너리로 패키징.
 3. 빌드가 제대로 안되면 다음처럼 새로 빌드
    .\gradlew.bat clean buildPlugin --no-build-cache
    .\gradlew.bat clean buildPlugin --no-build-cache --no-configuration-cache
+
+## 데이터 흐름
+
+# GUI -> CORE
+
+gui에서 요청
+
+```
+extra.ideMessenger.request("history/delete", { id });
+```
+
+코어모듈에서 수신: core\core.ts
+
+```
+on("history/delete", (msg) => {
+   historyManager.delete(msg.data.id);
+   });
+```
