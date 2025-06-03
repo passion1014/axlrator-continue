@@ -255,10 +255,12 @@ class ContinueExtensionConfigurable : Configurable {
         ContinueExtensionSettings.instance.addRemoteSyncJob()
     }
 
+    // UI 컴포넌트가 생성되었는지 확인
     override fun disposeUIResources() {
         mySettingsComponent = null
     }
 
+    // 설정 패널의 이름 반환
     override fun getDisplayName(): String {
         return "Continue Extension Settings"
     }

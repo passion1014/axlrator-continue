@@ -14,6 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlin.properties.Delegates
 
+/**
+ * Continue 플러그인의 상태와 상호작용을 관리하는 서비스입니다.
+ */
 @Service(Service.Level.PROJECT)
 class ContinuePluginService : Disposable, DumbAware {
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -46,9 +49,9 @@ class ContinuePluginService : Disposable, DumbAware {
     }
 
     /**
-     * Add a listener for protocolClient initialization.
-     * Currently, only one needs to be processed. If there are more than one,
-     * we can use an array to add listeners to ensure that the message is processed.
+     * protocolClient 초기화 리스너를 추가합니다.
+     * 현재는 하나만 처리하면 됩니다. 만약 여러 개가 필요하다면,
+     * 배열을 사용해 리스너를 추가하여 메시지가 처리되도록 할 수 있습니다.
      */
     fun onProtocolClientInitialized(listener: () -> Unit) {
         if (ideProtocolClient == null) {

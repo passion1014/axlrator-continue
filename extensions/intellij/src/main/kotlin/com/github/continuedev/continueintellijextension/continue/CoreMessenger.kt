@@ -205,7 +205,7 @@ class CoreMessenger(
                 setPermissions(continueCorePath)
             }
             
-            // Start the subprocess
+            // Core 프로세스 실행
             val processBuilder =
                 ProcessBuilder(continueCorePath).directory(File(continueCorePath).parentFile)
             process = processBuilder.start()

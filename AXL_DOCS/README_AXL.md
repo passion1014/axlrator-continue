@@ -1,5 +1,22 @@
 # 📦 프로젝트 가이드
 
+## 🏗️ Architecture
+
+```Text
+         [ GUI (React App) ]
+               |
+               | (웹 요청 또는 이벤트 메시지)
+               v
+            [ Core (TypeScript 기반 공통모듈) ]
+               /    \
+ (Dependency) /      \ (개발:TCP:3000포트, 운영: IPC)
+             /        \
+            /          \
+         VSCode      IntelliJ
+
+
+```
+
 ## ✅ 필요 준비물
 
 - Node.js version **20.19.0 (LTS)** or higher
@@ -112,7 +129,7 @@ npm run build
 
 ## 🔁 데이터 흐름
 
-### GUI → CORE
+### CORE로 데이터 요청방법
 
 **GUI에서 요청:**
 
@@ -120,9 +137,19 @@ npm run build
 extra.ideMessenger.request("history/delete", { id });
 ```
 
+---
+
+**IntelliJ 에서 요청**
+
+```kotlin
+continuePluginService.coreMessenger?.request("files/deleted", data, null) { _ -> }
+```
+
+---
+
 **CORE에서 수신:**
 
-`core/core.ts`
+`core/core.ts` 에서 핸들러 구현
 
 ```ts
 on("history/delete", (msg) => {
@@ -131,22 +158,3 @@ on("history/delete", (msg) => {
 ```
 
 ---
-
-### IntelliJ → CORE
-
-```kotlin
-continuePluginService.coreMessenger?.request("files/deleted", data, null) { _ -> }
-```
-
----
-
-## 🏗️ Architecture
-
-### Core
-
-> _(여기 내용은 미작성 상태로 보이니 필요 시 추가해 주세요)_
-
----
-
-필요 시 PDF나 Notion 포맷으로도 변환해드릴 수 있습니다.
-더 다듬고 싶은 부분 있으면 알려줘요!
