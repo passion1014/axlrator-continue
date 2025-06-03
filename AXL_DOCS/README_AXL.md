@@ -1,3 +1,22 @@
+## 필요 준비물
+
+-- Node.js version 20.19.0 (LTS) or higher
+-- vscode
+-- intelliJ
+
+## 디펜던시 한꺼번에 설치
+
+- Unix: `./scripts/install-dependencies.sh`
+- Windows: `.\scripts\install-dependencies.ps1`
+
+## vsocde extention 원문 가이드
+
+-- CONTRIBUTING.md
+
+## intelliJ extension 원문 가이드
+
+- extensions/intellij/CONTRIBUTING.md
+
 ## Vscode Task 실행
 
 CTRL + SHIFT + P 누르면 tasks: run task 실행
@@ -61,3 +80,7 @@ on("history/delete", (msg) => {
 ```
 continuePluginService.coreMessenger?.request("files/deleted", data, null) { _ -> }
 ```
+
+## Architecture
+
+Core

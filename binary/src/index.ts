@@ -25,7 +25,10 @@ program.action(async () => {
      * @typeParam FromCoreProtocol - 코어에서 수신되는 메시지의 타입입니다.
      */
     let messenger: IMessenger<ToCoreProtocol, FromCoreProtocol>;
+
     if (process.env.CONTINUE_DEVELOPMENT === "true") {
+      // 개발 모드
+      // TCP 소켓을 통해 코어와 연결
       messenger = new TcpMessenger<ToCoreProtocol, FromCoreProtocol>();
       console.log("[binary] Waiting for connection");
       await (
@@ -33,6 +36,8 @@ program.action(async () => {
       ).awaitConnection();
       console.log("[binary] Connected");
     } else {
+      // 프로덕션 모드
+      //IpcMessenger로 바로 코어가 시작
       setupCoreLogging();
       // await setupCa();
       messenger = new IpcMessenger<ToCoreProtocol, FromCoreProtocol>();
