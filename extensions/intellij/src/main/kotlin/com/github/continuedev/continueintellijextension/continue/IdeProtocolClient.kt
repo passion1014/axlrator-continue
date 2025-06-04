@@ -24,7 +24,14 @@ import kotlinx.coroutines.*
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 
-
+/**
+ * Continue 플러그인의 IDE 프로토콜 클라이언트입니다.
+ * 이 클래스는 IDE와의 상호작용을 처리하며, 웹뷰로부터 수신된 메시지를 처리합니다.
+ *
+ * @param continuePluginService Continue 플러그인 서비스 인스턴스
+ * @param coroutineScope 코루틴 스코프
+ * @param project 현재 프로젝트 인스턴스
+ */
 class IdeProtocolClient(
     private val continuePluginService: ContinuePluginService,
     private val coroutineScope: CoroutineScope,
@@ -43,6 +50,7 @@ class IdeProtocolClient(
     @OptIn(ExperimentalCoroutinesApi::class)
     private val limitedDispatcher = Dispatchers.IO.limitedParallelism(4)
 
+
     init {
         // Setup config.json / config.ts save listeners
         VirtualFileManager.getInstance().addAsyncFileListener(
@@ -50,10 +58,23 @@ class IdeProtocolClient(
         )
     }
 
+    /**
+     * IDE의 마지막 파일 저장 타임스탬프를 업데이트합니다.
+     * 이 함수는 IDE가 파일을 저장할 때 호출되어
+     * 마지막 저장 시간을 갱신합니다.
+     */
     fun updateLastFileSaveTimestamp() {
         (ide as IntelliJIDE).updateLastFileSaveTimestamp()
     }
 
+    /**
+     * 웹뷰로부터 수신된 메시지를 처리합니다.
+     * 이 함수는 웹뷰로부터 메시지를 수신할 때 호출되며,
+     * 메시지를 파싱하고 메시지 유형에 따라 적절한 메서드를 호출합니다.
+     *
+     * @param msg 웹뷰로부터 수신된 메시지입니다.
+     * @param respond 웹뷰로 응답을 보내는 콜백 함수입니다.
+     */
     fun handleMessage(msg: String, respond: (Any?) -> Unit) {
         coroutineScope.launch(limitedDispatcher) {
             val message = Gson().fromJson(msg, Message::class.java)
@@ -62,6 +83,7 @@ class IdeProtocolClient(
 
             try {
                 when (messageType) {
+
                     "toggleDevTools" -> {
                         continuePluginService.continuePluginWindow?.browser?.browser?.openDevtools()
                     }
@@ -500,6 +522,10 @@ class IdeProtocolClient(
         }
     }
 
+    /**
+     * UUID 생성 함수
+     * @return UUID 문자열
+     */
     fun sendHighlightedCode(edit: Boolean = false) {
         val editor = EditorUtils.getEditor(project)
         val rif = editor?.getHighlightedRIF() ?: return
@@ -513,12 +539,21 @@ class IdeProtocolClient(
         )
     }
 
-
+    /**
+     * Diff를 수락하거나 거부하는 메시지를 웹뷰로 전송합니다.
+     *
+     * @param accepted true이면 수락, false이면 거부
+     * @param stepIndex Diff 단계 인덱스
+     */
     fun sendAcceptRejectDiff(accepted: Boolean, stepIndex: Int) {
         continuePluginService.sendToWebview("acceptRejectDiff", AcceptRejectDiff(accepted, stepIndex), uuid())
     }
 
-
+    /**
+     * 특정 인덱스의 항목을 삭제하는 메시지를 웹뷰로 전송합니다.
+     *
+     * @param index 삭제할 항목의 인덱스
+     */
     fun deleteAtIndex(index: Int) {
         continuePluginService.sendToWebview("deleteAtIndex", DeleteAtIndex(index), uuid())
     }

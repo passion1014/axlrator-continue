@@ -25,6 +25,18 @@
 
 ---
 
+## 개발환경 설정
+
+- VSCODE: GUI(리액트), CORE(타입스크립트), Vscode Extention(타입스크립트) 개발
+- IntelliJ: IntelliiJ Extention(코틀린) 개발
+  1. axlrator-continue\extensions\intellij의 폴더 열기.
+  2. gradle로 필요 라이브러리 설치(자동설치)
+  3. Setting>Plugins에서 Plugin DevKit 설치
+
+## 디버깅 방법
+
+TODO:
+
 ## 📥 디펜던시 한꺼번에 설치
 
 - **Unix**:
