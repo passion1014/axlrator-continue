@@ -4,6 +4,11 @@ import { ChunkWithoutID } from "../../index.js";
 import { countTokensAsync } from "../../llm/countTokens.js";
 import { getParserForFile } from "../../util/treeSitter.js";
 
+/**
+ * 주어진 노드를 축소된 표현으로 변환합니다.
+ * @param node - 변환할 노드
+ * @returns 축소된 표현
+ */
 function collapsedReplacement(node: SyntaxNode): string {
   if (node.type === "statement_block") {
     return "{ ... }";
@@ -11,6 +16,12 @@ function collapsedReplacement(node: SyntaxNode): string {
   return "...";
 }
 
+/**
+ * 주어진 노드의 첫 번째 자식 노드를 반환합니다.
+ * @param node - 부모 노드
+ * @param grammarName - 찾을 자식 노드의 타입 또는 타입 배열
+ * @returns 첫 번째 자식 노드 또는 null
+ */
 function firstChild(
   node: SyntaxNode,
   grammarName: string | string[],
@@ -23,6 +34,16 @@ function firstChild(
   return node.children.find((child) => child.type === grammarName) || null;
 }
 
+/**
+ * 주어진 노드의 자식 노드를 축소합니다.
+ * @param node - 축소할 노드
+ * @param code - 전체 코드 문자열
+ * @param blockTypes - 블록 타입 배열
+ * @param collapseTypes - 축소할 타입 배열
+ * @param collapseBlockTypes - 축소할 블록 타입 배열
+ * @param maxChunkSize - 최대 청크 크기
+ * @returns 축소된 코드 문자열
+ */
 async function collapseChildren(
   node: SyntaxNode,
   code: string,
@@ -100,6 +121,7 @@ async function collapseChildren(
 
 export const FUNCTION_BLOCK_NODE_TYPES = ["block", "statement_block"];
 export const FUNCTION_DECLARATION_NODE_TYPEs = [
+  /// 함수 정의, 메서드 정의 등에서 사용되는 노드 타입
   "method_definition",
   "function_definition",
   "function_item",
@@ -107,6 +129,13 @@ export const FUNCTION_DECLARATION_NODE_TYPEs = [
   "method_declaration",
 ];
 
+/**
+ * 클래스 정의 청크를 생성합니다.
+ * @param node - 클래스 정의 노드
+ * @param code - 전체 코드 문자열
+ * @param maxChunkSize - 최대 청크 크기
+ * @returns 축소된 클래스 정의 문자열
+ */
 async function constructClassDefinitionChunk(
   node: SyntaxNode,
   code: string,
@@ -122,6 +151,13 @@ async function constructClassDefinitionChunk(
   );
 }
 
+/**
+ * 함수 정의 청크를 생성합니다.
+ * @param node - 함수 정의 노드
+ * @param code - 전체 코드 문자열
+ * @param maxChunkSize - 최대 청크 크기
+ * @returns 축소된 함수 정의 문자열
+ */
 async function constructFunctionDefinitionChunk(
   node: SyntaxNode,
   code: string,
@@ -149,6 +185,9 @@ async function constructFunctionDefinitionChunk(
   return funcText;
 }
 
+/**
+ * 축소된 노드 생성자 맵입니다.
+ */
 const collapsedNodeConstructors: {
   [key: string]: (
     node: SyntaxNode,
@@ -169,6 +208,14 @@ const collapsedNodeConstructors: {
   // Properties
 };
 
+/**
+ * 주어진 노드에 대한 청크를 생성합니다.
+ * @param node - 청크를 생성할 노드
+ * @param code - 전체 코드 문자열
+ * @param maxChunkSize - 최대 청크 크기
+ * @param root - 루트 노드 여부
+ * @returns 생성된 청크 또는 undefined
+ */
 async function maybeYieldChunk(
   node: SyntaxNode,
   code: string,
@@ -189,6 +236,14 @@ async function maybeYieldChunk(
   return undefined;
 }
 
+/**
+ * 스마트 축소된 청크를 생성하는 제너레이터입니다.
+ * @param node - 청크를 생성할 노드
+ * @param code - 전체 코드 문자열
+ * @param maxChunkSize - 최대 청크 크기
+ * @param root - 루트 노드 여부
+ * @returns 생성된 청크 제너레이터
+ */
 async function* getSmartCollapsedChunks(
   node: SyntaxNode,
   code: string,
@@ -222,6 +277,13 @@ async function* getSmartCollapsedChunks(
   }
 }
 
+/**
+ * 코드 청크를 생성하는 제너레이터입니다.
+ * @param filepath - 파일 경로
+ * @param contents - 파일 내용
+ * @param maxChunkSize - 최대 청크 크기
+ * @returns 청크 제너레이터
+ */
 export async function* codeChunker(
   filepath: string,
   contents: string,

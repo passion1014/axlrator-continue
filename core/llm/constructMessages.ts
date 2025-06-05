@@ -79,7 +79,7 @@ ${EDIT_MESSAGE}
 </important_rules>`;
 
 /**
- * Helper function to get the context items for a user message
+ * 사용자 메시지에 대한 컨텍스트 아이템을 가져오는 헬퍼 함수
  */
 function getUserContextItems(
   userMsg: UserChatMessage | ToolResultChatMessage | undefined,
@@ -87,13 +87,13 @@ function getUserContextItems(
 ): ContextItemWithId[] {
   if (!userMsg) return [];
 
-  // Find the history item that contains the userMsg
+  // userMsg를 포함하는 히스토리 아이템을 찾음
   const historyItem = history.find((item) => {
-    // Check if the message ID matches
+    // 메시지 ID가 일치하는지 확인
     if ("id" in userMsg && "id" in item.message) {
       return (item.message as any).id === (userMsg as any).id;
     }
-    // Fallback to content comparison
+    // ID가 없으면 content로 비교
     return (
       item.message.content === userMsg.content &&
       item.message.role === userMsg.role
@@ -103,6 +103,16 @@ function getUserContextItems(
   return historyItem?.contextItems || [];
 }
 
+/**
+ * 주어진 히스토리, 기본 시스템 메시지, 규칙을 바탕으로 채팅 메시지를 생성
+ * 메시지 모드에 따라 시스템 메시지와 툴 호출을 필터링
+ *
+ * @param messageMode - The mode of the chat (e.g., "chat" or "agent").
+ * @param history - The chat history items to construct messages from.
+ * @param baseChatOrAgentSystemMessage - The base system message for the chat or agent.
+ * @param rules - The rules to apply to the system message.
+ * @returns An array of constructed chat messages.
+ */
 export function constructMessages(
   messageMode: string,
   history: ChatHistoryItem[],
@@ -121,13 +131,13 @@ export function constructMessages(
       const toolMessage: ToolResultChatMessage =
         historyItem.message as ToolResultChatMessage;
       if (historyItem.toolCallState?.toolCallId || toolMessage.toolCallId) {
-        // remove all tool calls from the history
+        // 히스토리에서 모든 툴 호출 제거
         continue;
       }
     }
 
     if (historyItem.message.role === "user") {
-      // Gather context items for user messages
+      // 사용자 메시지에 대한 컨텍스트 아이템 수집
       let content = normalizeToMessageParts(historyItem.message);
 
       const ctxItems = historyItem.contextItems
@@ -154,7 +164,7 @@ export function constructMessages(
     | ToolResultChatMessage
     | undefined;
 
-  // Get context items for the last user message
+  // 마지막 사용자 메시지에 대한 컨텍스트 아이템 가져오기
   const lastUserContextItems = getUserContextItems(
     lastUserMsg,
     filteredHistory,
@@ -173,7 +183,7 @@ export function constructMessages(
     });
   }
 
-  // Remove the "id" from all of the messages
+  // 모든 메시지에서 "id" 제거
   return msgs.map((msg) => {
     const { id, ...rest } = msg as any;
     return rest;

@@ -13,6 +13,13 @@ export type ChunkDocumentParam = {
   digest: string;
 };
 
+/**
+ * 주어진 파일 URI와 내용에서 청크를 생성합니다.
+ * @param fileUri - 파일 URI
+ * @param contents - 파일 내용
+ * @param maxChunkSize - 최대 청크 크기
+ * @returns 청크 제너레이터
+ */
 async function* chunkDocumentWithoutId(
   fileUri: string,
   contents: string,
@@ -36,6 +43,10 @@ async function* chunkDocumentWithoutId(
   yield* basicChunker(contents, maxChunkSize);
 }
 
+/**
+ * 주어진 파일 경로와 내용에서 청크를 생성합니다.
+ * @param param0 - 청크 생성에 필요한 매개변수
+ */
 export async function* chunkDocument({
   filepath,
   contents,
@@ -77,6 +88,12 @@ export async function* chunkDocument({
   }
 }
 
+/**
+ * 파일이 청크화되어야 하는지 여부를 결정합니다.
+ * @param fileUri - 파일 URI
+ * @param contents - 파일 내용
+ * @returns 청크화 여부
+ */
 export function shouldChunk(fileUri: string, contents: string): boolean {
   if (contents.length > 1000000) {
     // if a file has more than 1m characters then skip it
