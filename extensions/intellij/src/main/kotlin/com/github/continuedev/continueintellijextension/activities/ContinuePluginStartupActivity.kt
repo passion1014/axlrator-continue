@@ -173,7 +173,7 @@ class ContinuePluginStartupActivity : StartupActivity, DumbAware {
                 }
             })
 
-            // 파일 시스템 변경 리스너 등록 (삭제, 변경, 생성)
+            // 파일 시스템 변경 리스너 등록 (삭제, 변경, 생성). 파일 인덱스 생성용
             connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
                     // 삭제된 파일 URI 수집 및 전송
