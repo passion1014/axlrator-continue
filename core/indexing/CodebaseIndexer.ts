@@ -22,6 +22,11 @@ import {
 } from "./types.js";
 import { walkDirAsync } from "./walkDir.js";
 
+/**
+ * PauseToken 클래스는 인덱싱 작업을 일시정지하고 재개할 수 있는 기능을 제공합니다.
+ * - paused 속성을 통해 인덱싱 작업의 일시정지 상태를 제어합니다.
+ * - 인덱싱 작업 중 일시정지 및 재개를 지원합니다.
+ */
 export class PauseToken {
   constructor(private _paused: boolean) {}
 
@@ -34,6 +39,26 @@ export class PauseToken {
   }
 }
 
+/**
+ * CodebaseIndexer 클래스는 코드베이스의 파일들을 인덱싱하고, 인덱스의 생성, 갱신, 삭제를 관리합니다.
+ *
+ * 주요 기능:
+ * - 대용량 파일 인덱싱 시 메모리 사용량을 제한하고, 임베딩 제공자에게 요청 횟수를 최소화하기 위해 배치 단위로 처리합니다.
+ * - 특정 Sqlite 에러 발생 시 인덱스를 자동으로 초기화할 수 있습니다.
+ * - 파일 또는 디렉터리 단위로 인덱싱을 수행하며, 진행 상황을 AsyncGenerator로 제공합니다.
+ * - 인덱싱 중 일시정지 및 취소 기능을 지원합니다.
+ * - 다양한 인덱스(임베딩, FTS, 코드 스니펫 등)를 동적으로 생성 및 갱신합니다.
+ *
+ * 생성자 매개변수:
+ * @param configHandler - 인덱싱 설정을 로드하는 핸들러
+ * @param ide - IDE와의 상호작용을 위한 객체
+ * @param pauseToken - 인덱싱 일시정지/재개 제어 토큰
+ * @param continueServerClient - 서버와의 통신을 위한 클라이언트
+ *
+ * 기타:
+ * - 인덱싱 중 에러 발생 시, 에러 메시지와 함께 인덱스 초기화 필요 여부를 판단합니다.
+ * - 인덱싱 진행률, 속도 등 로그를 출력할 수 있습니다.
+ */
 export class CodebaseIndexer {
   /**
    * We batch for two reasons:
@@ -53,6 +78,13 @@ export class CodebaseIndexer {
     /SQLITE_FULL/,
   ];
 
+  /**
+   * CodebaseIndexer 생성자
+   * @param configHandler - 인덱싱 설정을 로드하는 핸들러
+   * @param ide - IDE와의 상호작용을 위한 객체
+   * @param pauseToken - 인덱싱 일시정지/재개 제어 토큰
+   * @param continueServerClient - 서버와의 통신을 위한 클라이언트
+   */
   constructor(
     private readonly configHandler: ConfigHandler,
     protected readonly ide: IDE,
@@ -60,6 +92,11 @@ export class CodebaseIndexer {
     private readonly continueServerClient: IContinueServerClient,
   ) {}
 
+  /**
+   * 인덱스 파일 및 LanceDB 폴더를 삭제합니다.
+   * - 인덱스 파일은 getIndexSqlitePath()를 통해 경로를 가져옵니다.
+   * - LanceDB 폴더는 getLanceDbPath()를 통해 경로를 가져옵니다.
+   */
   async clearIndexes() {
     const sqliteFilepath = getIndexSqlitePath();
     const lanceDbFolder = getLanceDbPath();
@@ -77,6 +114,13 @@ export class CodebaseIndexer {
     }
   }
 
+  /**
+   * 현재 설정에 따라 생성할 인덱스 목록을 반환합니다.
+   * - 임베딩 인덱스는 항상 첫 번째로 생성됩니다.
+   * - LanceDB 인덱스가 존재하면 추가됩니다.
+   * - 전체 텍스트 검색 인덱스와 코드 스니펫 인덱스가 추가됩니다.
+   * @returns Promise<CodebaseIndex[]> 생성할 인덱스 목록
+   */
   protected async getIndexesToBuild(): Promise<CodebaseIndex[]> {
     const { config } = await this.configHandler.loadConfig();
     if (!config) {
@@ -113,6 +157,11 @@ export class CodebaseIndexer {
     return indexes;
   }
 
+  /**
+   * 인덱싱 결과에서 총 인덱스 작업 수를 계산합니다.
+   * @param results - 인덱싱 결과 객체
+   * @returns 총 인덱스 작업 수
+   */
   private totalIndexOps(results: RefreshIndexResults): number {
     return (
       results.compute.length +
@@ -122,6 +171,13 @@ export class CodebaseIndexer {
     );
   }
 
+  /**
+   * 지정된 파일에 대한 인덱싱 결과를 필터링합니다.
+   * @param results - 인덱싱 결과 객체
+   * @param lastUpdated - 마지막 갱신된 파일 경로와 캐시 키 목록
+   * @param filePath - 필터링할 파일 경로
+   * @returns 필터링된 인덱싱 결과와 마지막 갱신된 파일 목록
+   */
   private singleFileIndexOps(
     results: RefreshIndexResults,
     lastUpdated: PathAndCacheKey[],
@@ -142,6 +198,11 @@ export class CodebaseIndexer {
     return [newResults, newLastUpdated];
   }
 
+  /**
+   * 지정된 파일의 인덱스를 갱신합니다.
+   * @param file - 갱신할 파일 경로
+   * @param workspaceDirs - 워크스페이스 디렉터리 목록
+   */
   public async refreshFile(
     file: string,
     workspaceDirs: string[],
@@ -194,6 +255,10 @@ export class CodebaseIndexer {
     }
   }
 
+  /**
+   * 지정된 파일 목록에 대해 인덱싱을 수행하며, 진행 상황을 반환합니다.
+   * @param files - 인덱싱할 파일 목록
+   */
   async *refreshFiles(files: string[]): AsyncGenerator<IndexingProgressUpdate> {
     let progress = 0;
     if (files.length === 0) {
@@ -233,6 +298,11 @@ export class CodebaseIndexer {
     }
   }
 
+  /**
+   * 디렉터리 내 모든 파일을 인덱싱하며, 진행 상황을 반환합니다.
+   * @param dirs - 인덱싱할 디렉터리 목록
+   * @param abortSignal - 인덱싱 취소를 위한 AbortSignal
+   */
   async *refreshDirs(
     dirs: string[],
     abortSignal: AbortSignal,
@@ -350,6 +420,11 @@ export class CodebaseIndexer {
     this.logProgress(beginTime, 0, 1);
   }
 
+  /**
+   * 인덱싱 중 에러가 발생했을 때, 에러를 처리하고 인덱싱 진행 상황 업데이트를 반환합니다.
+   * @param err - 발생한 에러
+   * @returns IndexingProgressUpdate 객체
+   */
   private handleErrorAndGetProgressUpdate(
     err: unknown,
   ): IndexingProgressUpdate {
@@ -369,6 +444,11 @@ export class CodebaseIndexer {
     };
   }
 
+  /**
+   * 에러를 인덱싱 진행 상황 업데이트로 변환합니다.
+   * @param err - 발생한 에러
+   * @returns IndexingProgressUpdate 객체
+   */
   private errorToProgressUpdate(err: Error): IndexingProgressUpdate {
     const cause = getRootCause(err);
     let errMsg: string = `${cause}`;
@@ -394,6 +474,12 @@ export class CodebaseIndexer {
     };
   }
 
+  /**
+   * 인덱싱 진행 상황을 로그로 출력합니다.
+   * @param beginTime - 인덱싱 시작 시간 (밀리초 단위)
+   * @param completedFileCount - 완료된 파일 수
+   * @param progress - 현재 진행률 (0.0 ~ 1.0)
+   */
   private logProgress(
     beginTime: number,
     completedFileCount: number,
@@ -408,6 +494,10 @@ export class CodebaseIndexer {
     // );
   }
 
+  /**
+   * 인덱싱이 일시정지된 상태에서 업데이트를 생성하고, 일시정지 상태를 유지합니다.
+   * @returns AsyncGenerator<IndexingProgressUpdate>
+   */
   private async *yieldUpdateAndPause(): AsyncGenerator<IndexingProgressUpdate> {
     yield {
       progress: 0,
@@ -419,9 +509,10 @@ export class CodebaseIndexer {
     }
   }
 
-  /*
-   * Enables the indexing operation to be completed in batches, this is important in large
-   * repositories where indexing can quickly use up all the memory available
+  /**
+   * 인덱싱 결과를 배치 단위로 분할합니다.
+   * 대규모 저장소에서 인덱싱 시 메모리 사용량을 제한하기 위해 결과를 배치로 나눕니다.
+   * @param results 인덱싱 결과 객체
    */
   private *batchRefreshIndexResults(
     results: RefreshIndexResults,
@@ -443,6 +534,13 @@ export class CodebaseIndexer {
     }
   }
 
+  /**
+   * 지정된 파일 목록에 대해 인덱싱을 수행합니다.
+   * @param directory - 인덱싱할 디렉터리 경로
+   * @param files - 인덱싱할 파일 목록
+   * @param branch - 인덱싱할 브랜치
+   * @param repoName - 인덱싱할 레포지토리 이름
+   */
   private async *indexFiles(
     directory: string,
     files: string[],

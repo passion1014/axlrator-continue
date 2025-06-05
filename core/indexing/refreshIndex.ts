@@ -18,9 +18,18 @@ import {
 
 export type DatabaseConnection = Database<sqlite3.Database>;
 
+/**
+ * SQLite 데이터베이스 클래스입니다.
+ * 이 클래스는 데이터베이스 연결을 관리하고, 테이블을 생성하며, 인덱싱 작업을 수행합니다.
+ */
 export class SqliteDb {
   static db: DatabaseConnection | null = null;
 
+  /**
+   * 데이터베이스 테이블을 생성합니다.
+   * - `tag_catalog`: 태그 카탈로그 테이블
+   * - `global_cache`: 전역 캐시 테이블
+   */
   private static async createTables(db: DatabaseConnection) {
     await db.exec("PRAGMA journal_mode=WAL;");
 
@@ -79,6 +88,12 @@ export class SqliteDb {
 
   private static indexSqlitePath = getIndexSqlitePath();
 
+  /**
+   * 데이터베이스 연결을 가져옵니다.
+   * - 데이터베이스가 이미 열려 있으면 해당 연결을 반환합니다.
+   * - 데이터베이스가 닫혀 있거나 존재하지 않으면 새로 열고 테이블을 생성합니다.
+   * @returns 데이터베이스 연결
+   */
   static async get() {
     if (SqliteDb.db && fs.existsSync(SqliteDb.indexSqlitePath)) {
       return SqliteDb.db;
@@ -98,6 +113,11 @@ export class SqliteDb {
   }
 }
 
+/**
+ * 주어진 태그에 대한 저장된 항목을 가져옵니다.
+ * @param tag - 인덱싱 태그
+ * @returns 저장된 항목의 경로, 캐시 키 및 마지막 업데이트 시간
+ */
 async function getSavedItemsForTag(
   tag: IndexTag,
 ): Promise<{ path: string; cacheKey: string; lastUpdated: number }[]> {
@@ -125,6 +145,14 @@ enum AddRemoveResultType {
 // Don't attempt to index anything over 5MB
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
+/**
+ * 주어진 태그에 대한 추가 및 제거 작업을 가져옵니다.
+ * - 현재 파일 목록과 비교하여 새로 추가된 파일, 업데이트된 파일, 제거된 파일을 식별합니다.
+ * @param tag - 인덱싱 태그
+ * @param currentFiles - 현재 파일 목록
+ * @param readFile - 파일을 읽는 함수
+ * @returns 추가, 제거, 업데이트된 파일 목록과 완료 콜백 함수
+ */
 async function getAddRemoveForTag(
   tag: IndexTag,
   currentFiles: FileStatsMap,
@@ -241,6 +269,12 @@ async function getAddRemoveForTag(
     [AddRemoveResultType.Compute]: [],
   };
 
+  /**
+   * 완료 콜백 함수입니다.
+   * - 인덱싱 작업이 완료된 후 데이터베이스를 업데이트합니다.
+   * @param items - 인덱싱된 항목 목록
+   * @param resultType - 인덱싱 결과 유형
+   */
   async function markComplete(
     items: PathAndCacheKey[],
     resultType: IndexResultType,
@@ -343,8 +377,12 @@ async function getAddRemoveForTag(
 }
 
 /**
- * Check the global cache for items with this cacheKey for the given artifactId.
- * Return all of the tags that it exists under, which could be an empty array
+ * 전역 캐시에서 주어진 cacheKey와 artifactId에 대한 태그를 가져옵니다.
+ * 이 함수는 해당 cacheKey와 artifactId로 전역 캐시(global_cache) 테이블을 조회하여,
+ * 존재하는 모든 태그(IndexTag)를 반환합니다. 결과가 없을 수도 있습니다.
+ * @param cacheKey - 캐시 키
+ * @param artifactId - 아티팩트 ID
+ * @returns 태그 목록
  */
 async function getTagsFromGlobalCache(
   cacheKey: string,
@@ -358,12 +396,22 @@ async function getTagsFromGlobalCache(
   return rows;
 }
 
+/**
+ * 주어진 파일 내용의 SHA-256 해시를 계산합니다.
+ * @param fileContents - 파일 내용
+ * @returns SHA-256 해시 값
+ */
 function calculateHash(fileContents: string): string {
   const hash = crypto.createHash("sha256");
   hash.update(fileContents);
   return hash.digest("hex");
 }
 
+/**
+ * 인덱스 결과 유형을 추가/제거 결과 유형으로 매핑합니다.
+ * @param resultType - 인덱스 결과 유형
+ * @returns 매핑된 추가/제거 결과 유형
+ */
 function mapIndexResultTypeToAddRemoveResultType(
   resultType: IndexResultType,
 ): AddRemoveResultType {
@@ -382,6 +430,16 @@ function mapIndexResultTypeToAddRemoveResultType(
   }
 }
 
+/**
+ * 주어진 태그에 대한 인덱스 갱신 작업을 수행합니다.
+ * - 현재 파일 목록과 비교하여 추가, 제거, 업데이트된 파일을 식별하고,
+ *   이를 전역 캐시에 반영합니다.
+ * @param tag - 인덱싱 태그
+ * @param currentFiles - 현재 파일 목록
+ * @param readFile - 파일을 읽는 함수
+ * @param repoName - 레포지토리 이름 (선택적)
+ * @returns 인덱스 갱신 결과, 마지막 업데이트 시간, 완료 콜백 함수
+ */
 export async function getComputeDeleteAddRemove(
   tag: IndexTag,
   currentFiles: FileStatsMap,
@@ -456,6 +514,10 @@ export async function getComputeDeleteAddRemove(
   ];
 }
 
+/**
+ * 전역 캐시 코드베이스 인덱스 클래스입니다.
+ * - 인덱스 업데이트 및 관리를 담당합니다.
+ */
 export class GlobalCacheCodeBaseIndex implements CodebaseIndex {
   relativeExpectedTime: number = 1;
 
@@ -514,6 +576,12 @@ export class GlobalCacheCodeBaseIndex implements CodebaseIndex {
 
 const SQLITE_MAX_LIKE_PATTERN_LENGTH = 50000;
 
+/**
+ * 문자열을 최대 N 바이트로 잘라냅니다.
+ * @param input - 입력 문자열
+ * @param maxBytes - 최대 바이트 수
+ * @returns 잘라낸 문자열
+ */
 export function truncateToLastNBytes(input: string, maxBytes: number): string {
   let bytes = 0;
   let startIndex = 0;
@@ -529,6 +597,12 @@ export function truncateToLastNBytes(input: string, maxBytes: number): string {
   return input.substring(startIndex, input.length);
 }
 
+/**
+ * SQLite LIKE 패턴을 안전하게 잘라냅니다.
+ * @param input - 입력 문자열
+ * @param safety - 안전 여유 공간 (기본값: 100)
+ * @returns 잘라낸 문자열
+ */
 export function truncateSqliteLikePattern(input: string, safety: number = 100) {
   return truncateToLastNBytes(input, SQLITE_MAX_LIKE_PATTERN_LENGTH - safety);
 }
