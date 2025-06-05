@@ -33,12 +33,19 @@ import { tagToString } from "./utils";
 
 type SnippetChunk = ChunkWithoutID & { title: string; signature: string };
 
+/**
+ * 코드 스니펫 인덱스
+ */
 export class CodeSnippetsCodebaseIndex implements CodebaseIndex {
   relativeExpectedTime: number = 1;
   artifactId = "codeSnippets";
 
   constructor(private readonly ide: IDE) {}
 
+  /**
+   * 데이터베이스 테이블을 생성합니다.
+   * @param db - 데이터베이스 연결 객체
+   */
   private static async _createTables(db: DatabaseConnection) {
     await db.exec(`CREATE TABLE IF NOT EXISTS code_snippets (
         id INTEGER PRIMARY KEY,
@@ -122,6 +129,11 @@ export class CodeSnippetsCodebaseIndex implements CodebaseIndex {
     });
   }
 
+  /**
+   * 주어진 매치에서 스니펫 정보를 추출합니다.
+   * @param match - 파서 쿼리 매치
+   * @returns SnippetChunk 객체
+   */
   private getSnippetsFromMatch(match: Parser.QueryMatch): SnippetChunk {
     const bodyTypesToTreatAsSignatures = [
       "interface_declaration", // TypeScript, Java
@@ -178,6 +190,12 @@ export class CodeSnippetsCodebaseIndex implements CodebaseIndex {
     return { title, content, signature, startLine, endLine };
   }
 
+  /**
+   * 주어진 파일 경로와 내용에서 코드 스니펫을 추출합니다.
+   * @param filepath - 파일 경로
+   * @param contents - 파일 내용
+   * @returns SnippetChunk 배열
+   */
   async getSnippetsInFile(
     filepath: string,
     contents: string,
@@ -207,6 +225,14 @@ export class CodeSnippetsCodebaseIndex implements CodebaseIndex {
     return matches.map(this.getSnippetsFromMatch);
   }
 
+  /**
+   * 인덱스를 업데이트합니다.
+   * @param tag - 인덱스 태그
+   * @param results - 인덱스 갱신 결과
+   * @param markComplete - 완료 콜백
+   * @param repoName - 레포지토리 이름 (선택적)
+   * @returns 인덱싱 진행 업데이트 제너레이터
+   */
   async *update(
     tag: IndexTag,
     results: RefreshIndexResults,
@@ -348,6 +374,12 @@ export class CodeSnippetsCodebaseIndex implements CodebaseIndex {
     }
   }
 
+  /**
+   * 주어진 ID에 해당하는 코드 스니펫을 가져옵니다.
+   * @param id - 코드 스니펫 ID
+   * @param workspaceDirs - 워크스페이스 디렉토리 목록
+   * @returns ContextItem 객체
+   */
   static async getForId(
     id: number,
     workspaceDirs: string[],
@@ -368,6 +400,11 @@ export class CodeSnippetsCodebaseIndex implements CodebaseIndex {
     };
   }
 
+  /**
+   * 주어진 태그에 해당하는 모든 코드 스니펫을 가져옵니다.
+   * @param tag - 인덱스 태그
+   * @returns ContextSubmenuItem 배열
+   */
   static async getAll(tag: IndexTag): Promise<ContextSubmenuItem[]> {
     const db = await SqliteDb.get();
     await CodeSnippetsCodebaseIndex._createTables(db);
@@ -392,6 +429,15 @@ export class CodeSnippetsCodebaseIndex implements CodebaseIndex {
     }
   }
 
+  /**
+   * 주어진 워크스페이스 디렉토리에서 코드 스니펫의 경로와 서명을 가져옵니다.
+   * @param workspaceDirs - 워크스페이스 디렉토리 목록
+   * @param uriOffset - URI 오프셋
+   * @param uriBatchSize - URI 배치 크기
+   * @param snippetOffset - 스니펫 오프셋
+   * @param snippetBatchSize - 스니펫 배치 크기
+   * @returns 경로와 서명이 그룹화된 객체, 더 많은 스니펫과 URI 여부
+   */
   static async getPathsAndSignatures(
     workspaceDirs: string[],
     uriOffset: number = 0,

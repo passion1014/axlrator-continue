@@ -38,6 +38,9 @@ type ItemWithChunks = { item: PathAndCacheKey; chunks: Chunk[] };
 
 type ChunkMap = Map<string, ItemWithChunks>;
 
+/**
+ * LanceDbIndex는 LanceDB를 사용하여 코드베이스의 벡터 인덱싱을 지원합니다.
+ */
 export class LanceDbIndex implements CodebaseIndex {
   private static lance: typeof LanceType | null = null;
 
@@ -54,6 +57,12 @@ export class LanceDbIndex implements CodebaseIndex {
    * the application if loaded on unsupported architectures.
    *
    * See isSupportedLanceDbCpuTargetForLinux() for platform compatibility details.
+   */
+  /**
+   * LanceDbIndex 인스턴스를 생성합니다.
+   * @param embeddingsProvider - 임베딩 제공자
+   * @param readFile - 파일 읽기 함수
+   * @returns LanceDbIndex 인스턴스 또는 null
    */
   static async create(
     embeddingsProvider: ILLM,
@@ -72,6 +81,11 @@ export class LanceDbIndex implements CodebaseIndex {
     }
   }
 
+  /**
+   * LanceDbIndex 생성자
+   * @param embeddingsProvider - 임베딩 제공자
+   * @param readFile - 파일 읽기 함수
+   */
   private constructor(
     private readonly embeddingsProvider: ILLM,
     private readonly readFile: (filepath: string) => Promise<string>,
@@ -85,6 +99,10 @@ export class LanceDbIndex implements CodebaseIndex {
     return tagToString(tag).replace(/[^\w-_.]/g, "");
   }
 
+  /**
+   * LanceDB 인덱스의 SQLite 캐시 테이블을 생성합니다.
+   * @param db - 데이터베이스 연결 객체
+   */
   private async createSqliteCacheTable(db: DatabaseConnection) {
     await db.exec(`CREATE TABLE IF NOT EXISTS lance_db_cache (
         uuid TEXT PRIMARY KEY,
@@ -122,6 +140,11 @@ export class LanceDbIndex implements CodebaseIndex {
     );
   }
 
+  /**
+   * LanceDB 인덱스의 SQLite 캐시 테이블에서 주어진 태그에 대한 인덱싱된 파일 목록을 가져옵니다.
+   * @param tag - 인덱싱 태그
+   * @returns 인덱싱된 파일 목록
+   */
   private async computeRows(items: PathAndCacheKey[]): Promise<LanceDbRow[]> {
     const chunkMap = await this.collectChunks(items);
     const allChunks = Array.from(chunkMap.values()).flatMap(
@@ -147,6 +170,11 @@ export class LanceDbIndex implements CodebaseIndex {
     return this.createLanceDbRows(chunkMap, embeddings);
   }
 
+  /**
+   * 주어진 파일 경로와 캐시 키 목록에서 청크를 수집합니다.
+   * @param items - 파일 경로와 캐시 키의 배열
+   * @returns 청크 맵
+   */
   private async collectChunks(items: PathAndCacheKey[]): Promise<ChunkMap> {
     const chunkMap: ChunkMap = new Map();
 
@@ -168,6 +196,12 @@ export class LanceDbIndex implements CodebaseIndex {
     return chunkMap;
   }
 
+  /**
+   * 주어진 파일 경로와 내용에서 청크를 생성합니다.
+   * @param item - 파일 경로와 캐시 키
+   * @param content - 파일 내용
+   * @returns 청크 배열
+   */
   private async getChunks(
     item: PathAndCacheKey,
     content: string,
@@ -195,6 +229,11 @@ export class LanceDbIndex implements CodebaseIndex {
     return chunks;
   }
 
+  /**
+   * 청크의 내용을 임베딩하여 벡터를 생성합니다.
+   * @param chunks - 청크 배열
+   * @returns 임베딩된 벡터 배열
+   */
   private async getEmbeddings(chunks: Chunk[]): Promise<number[][]> {
     if (!this.embeddingsProvider) {
       return [];
@@ -209,6 +248,12 @@ export class LanceDbIndex implements CodebaseIndex {
     }
   }
 
+  /**
+   * 청크 맵에서 LanceDB 행을 생성합니다.
+   * @param chunkMap - 청크 맵
+   * @param embeddings - 임베딩된 벡터 배열
+   * @returns LanceDB 행 배열
+   */
   private createLanceDbRows(
     chunkMap: ChunkMap,
     embeddings: number[][],
@@ -234,6 +279,14 @@ export class LanceDbIndex implements CodebaseIndex {
     return results;
   }
 
+  /**
+   * 주어진 태그에 대한 인덱스를 업데이트합니다.
+   * @param tag - 인덱싱 태그
+   * @param results - 인덱스 갱신 결과
+   * @param markComplete - 인덱싱 완료 콜백
+   * @param repoName - 레포지토리 이름 (선택적)
+   * @returns 인덱싱 진행 업데이트 제너레이터
+   */
   async *update(
     tag: IndexTag,
     results: RefreshIndexResults,
@@ -375,6 +428,15 @@ export class LanceDbIndex implements CodebaseIndex {
     };
   }
 
+  /**
+   * 주어진 태그에 대한 벡터를 사용하여 LanceDB에서 데이터를 검색합니다.
+   * @param tag - 인덱싱 태그
+   * @param n - 검색할 최대 결과 수
+   * @param directory - 필터링할 디렉토리 (선택적)
+   * @param vector - 검색할 벡터
+   * @param db - LanceDB 연결 객체
+   * @returns 검색된 결과 배열
+   */
   private async _retrieveForTag(
     tag: IndexTag,
     n: number,
@@ -400,6 +462,14 @@ export class LanceDbIndex implements CodebaseIndex {
     return results.slice(0, n) as any;
   }
 
+  /**
+   * 주어진 쿼리와 태그에 대한 청크를 검색합니다.
+   * @param query - 검색할 쿼리
+   * @param n - 검색할 최대 결과 수
+   * @param tags - 검색할 태그 목록
+   * @param filterDirectory - 필터링할 디렉토리 (선택적)
+   * @returns 검색된 청크 배열
+   */
   async retrieve(
     query: string,
     n: number,
@@ -466,6 +536,11 @@ export class LanceDbIndex implements CodebaseIndex {
     });
   }
 
+  /**
+   * LanceDB에 행을 삽입합니다.
+   * @param db - 데이터베이스 연결 객체
+   * @param rows - 삽입할 행 배열
+   */
   private async insertRows(
     db: DatabaseConnection,
     rows: LanceDbRow[],
@@ -520,6 +595,12 @@ export class LanceDbIndex implements CodebaseIndex {
     });
   }
 
+  /**
+   * 주어진 단어의 복수형을 반환합니다.
+   * @param word - 단어
+   * @param length - 단어의 개수
+   * @returns 복수형 단어
+   */
   private formatListPlurality(word: string, length: number): string {
     return length <= 1 ? word : `${word}s`;
   }

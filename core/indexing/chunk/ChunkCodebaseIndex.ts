@@ -17,6 +17,10 @@ import { getUriPathBasename } from "../../util/uri.js";
 import { tagToString } from "../utils.js";
 import { chunkDocument, shouldChunk } from "./chunk.js";
 
+/**
+ * ChunkCodebaseIndex는 코드베이스 파일을 더 작은 청크로 인덱싱하는 역할을 합니다.
+ * 주어진 결과에 따라 청크를 추가, 제거, 삭제하는 기능을 지원합니다.
+ */
 export class ChunkCodebaseIndex implements CodebaseIndex {
   relativeExpectedTime: number = 1;
   static artifactId = "chunks";
@@ -28,6 +32,13 @@ export class ChunkCodebaseIndex implements CodebaseIndex {
     private readonly maxChunkSize: number,
   ) {}
 
+  /**
+   * 인덱스를 업데이트합니다.
+   * @param tag - 인덱싱 태그
+   * @param results - 인덱싱 결과
+   * @param markComplete - 완료 콜백
+   * @param repoName - 레포지토리 이름 (선택적)
+   */
   async *update(
     tag: IndexTag,
     results: RefreshIndexResults,
@@ -144,6 +155,9 @@ export class ChunkCodebaseIndex implements CodebaseIndex {
     }
   }
 
+  /**
+   * 테이블 생성
+   */
   private async createTables(db: DatabaseConnection) {
     await db.exec(`CREATE TABLE IF NOT EXISTS chunks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -164,6 +178,11 @@ export class ChunkCodebaseIndex implements CodebaseIndex {
     )`);
   }
 
+  /**
+   * 청크를 파일로부터 읽어와서 청크로 변환합니다.
+   * @param pack - 파일 경로와 캐시 키
+   * @returns 청크 배열
+   */
   private async packToChunks(pack: PathAndCacheKey): Promise<Chunk[]> {
     const contents = await this.readFile(pack.path);
     if (!shouldChunk(pack.path, contents)) {
@@ -182,6 +201,11 @@ export class ChunkCodebaseIndex implements CodebaseIndex {
     return chunks;
   }
 
+  /**
+   * 주어진 경로와 캐시 키 목록을 청크로 변환합니다.
+   * @param paths - 경로와 캐시 키의 배열
+   * @returns 청크 배열
+   */
   private async computeChunks(paths: PathAndCacheKey[]): Promise<Chunk[]> {
     const chunkLists = await Promise.all(
       paths.map((p) => this.packToChunks(p)),
@@ -189,6 +213,12 @@ export class ChunkCodebaseIndex implements CodebaseIndex {
     return chunkLists.flat();
   }
 
+  /**
+   * 청크를 데이터베이스에 삽입합니다.
+   * @param db - 데이터베이스 연결
+   * @param tagString - 태그 문자열
+   * @param chunks - 청크 배열
+   */
   private async insertChunks(
     db: DatabaseConnection,
     tagString: string,

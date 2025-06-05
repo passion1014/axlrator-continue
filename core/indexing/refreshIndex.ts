@@ -525,10 +525,23 @@ export class GlobalCacheCodeBaseIndex implements CodebaseIndex {
 
   artifactId = "globalCache";
 
+  /**
+   * GlobalCacheCodeBaseIndex 인스턴스를 생성합니다.
+   * - 데이터베이스 연결을 가져와 인스턴스를 초기화합니다.
+   * @returns GlobalCacheCodeBaseIndex 인스턴스
+   */
   static async create(): Promise<GlobalCacheCodeBaseIndex> {
     return new GlobalCacheCodeBaseIndex(await SqliteDb.get());
   }
 
+  /**
+   * 인덱스를 업데이트합니다.
+   * - 주어진 태그에 대한 인덱스 갱신 작업을 수행합니다.
+   * @param tag - 인덱싱 태그
+   * @param results - 인덱스 갱신 결과
+   * @param _ - 완료 콜백 (사용되지 않음)
+   * @param repoName - 레포지토리 이름 (선택적)
+   */
   async *update(
     tag: IndexTag,
     results: RefreshIndexResults,
@@ -548,6 +561,12 @@ export class GlobalCacheCodeBaseIndex implements CodebaseIndex {
     yield { progress: 1, desc: "Done updating global cache", status: "done" };
   }
 
+  /**
+   * 주어진 cacheKey와 태그에 대한 인덱스를 계산하거나 추가합니다.
+   * - 전역 캐시(global_cache) 테이블에 해당 항목을 추가하거나 업데이트합니다.
+   * @param cacheKey - 캐시 키
+   * @param tag - 인덱싱 태그
+   */
   private async computeOrAddTag(
     cacheKey: string,
     tag: IndexTag,
@@ -560,6 +579,13 @@ export class GlobalCacheCodeBaseIndex implements CodebaseIndex {
       tag.artifactId,
     );
   }
+
+  /**
+   * 주어진 cacheKey와 태그에 대한 인덱스를 삭제하거나 제거합니다.
+   * - 전역 캐시(global_cache) 테이블에서 해당 항목을 삭제합니다.
+   * @param cacheKey - 캐시 키
+   * @param tag - 인덱싱 태그
+   */
   private async deleteOrRemoveTag(
     cacheKey: string,
     tag: IndexTag,
