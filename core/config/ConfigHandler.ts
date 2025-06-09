@@ -36,6 +36,29 @@ export type { ProfileDescription };
 
 type ConfigUpdateFunction = (payload: ConfigResult<ContinueConfig>) => void;
 
+/**
+ * ConfigHandler is responsible for managing the configuration of the IDE,
+ */
+/**
+ * 구성 및 프로필 관리를 담당하는 핸들러 클래스입니다.
+ *
+ * 이 클래스는 IDE, 조직, 프로필, 세션 정보 등을 바탕으로
+ * 다양한 조직 및 프로필의 라이프사이클을 관리하고,
+ * 현재 선택된 조직 및 프로필을 추적하며,
+ * 구성 변경 시 리스너에게 알림을 제공합니다.
+ *
+ * 주요 기능:
+ * - 조직 및 프로필 목록 로드 및 직렬화
+ * - 현재 조직/프로필 선택 및 변경
+ * - 구성 로드 및 갱신
+ * - 외부 컨텍스트 제공자 등록 및 관리
+ * - 구성 변경 리스너 등록 및 알림
+ *
+ * @remarks
+ * - 조직 및 프로필 선택 정보는 워크스페이스별로 저장됩니다.
+ * - 로컬 및 허브 프로필을 모두 지원합니다.
+ * - 세션 또는 IDE 설정 변경 시 자동으로 구성을 재로드합니다.
+ */
 export class ConfigHandler {
   controlPlaneClient: ControlPlaneClient;
   private readonly globalContext = new GlobalContext();
@@ -84,6 +107,12 @@ export class ConfigHandler {
   }
 
   private workspaceDirs: string[] | null = null;
+
+  /**
+   * 워크스페이스 디렉터리를 조인하여 워크스페이스 ID를 반환합니다.
+   * 이 값은 구성 식별을 위해 워크스페이스를 고유하게 식별하는 데 사용됩니다.
+   * @returns 워크스페이스 ID 문자열
+   */
   async getWorkspaceId() {
     if (!this.workspaceDirs) {
       this.workspaceDirs = await this.ide.getWorkspaceDirs();
@@ -91,11 +120,20 @@ export class ConfigHandler {
     return this.workspaceDirs.join("&");
   }
 
+  /**
+   * 조직 ID와 워크스페이스 ID를 기반으로 프로필에 대한 고유 키를 생성합니다.
+   * @param orgId - 조직 ID
+   * @returns 프로필 키 문자열
+   */
   async getProfileKey(orgId: string) {
     const workspaceId = await this.getWorkspaceId();
     return `${workspaceId}:::${orgId}`;
   }
 
+  /**
+   * 구성 핸들러를 초기화하여 조직을 로드하고 현재 조직 및 프로필을 설정합니다.
+   * 이 메서드는 초기 설정 시와 세션 또는 IDE 설정이 변경될 때 호출됩니다.
+   */
   private async cascadeInit() {
     this.workspaceDirs = null; // forces workspace dirs reload
 
@@ -136,6 +174,10 @@ export class ConfigHandler {
     await this.reloadConfig();
   }
 
+  /**
+   * Retrieves the organizations with profiles, including local and hub profiles.
+   * @returns An array of organizations with profiles.
+   */
   private async getOrgs(): Promise<OrgWithProfiles[]> {
     if (await this.controlPlaneClient.isSignedIn()) {
       const orgDescs = await this.controlPlaneClient.listOrganizations();
@@ -149,6 +191,10 @@ export class ConfigHandler {
     }
   }
 
+  /**
+   * 직렬화된 조직 및 프로필 목록을 반환합니다.
+   * @returns 직렬화된 조직 및 프로필 배열
+   */
   getSerializedOrgs(): SerializedOrgWithProfiles[] {
     return this.organizations.map((org) => ({
       iconUrl: org.iconUrl,
@@ -160,6 +206,11 @@ export class ConfigHandler {
     }));
   }
 
+  /**
+   * Retrieves the hub profiles for a given organization scope.
+   * @param orgScopeId - The ID of the organization scope, or null for personal hub.
+   * @returns An array of profile lifecycle managers for the hub profiles.
+   */
   private async getHubProfiles(orgScopeId: string | null) {
     const assistants = await this.controlPlaneClient.listAssistants(orgScopeId);
 
@@ -187,6 +238,11 @@ export class ConfigHandler {
     );
   }
 
+  /**
+   * 개인이 아닌 허브 조직에 대한 프로필이 포함된 조직을 반환합니다.
+   * @param org - 조직 설명
+   * @returns 프로필과 현재 프로필이 포함된 조직 객체
+   */
   private async getNonPersonalHubOrg(
     org: OrganizationDescription,
   ): Promise<OrgWithProfiles> {
@@ -198,12 +254,20 @@ export class ConfigHandler {
     return this.rectifyProfilesForOrg(org, profiles);
   }
 
+  /**
+   * 로컬 프로필과 허브 프로필이 포함된 개인 조직 설명입니다.
+   */
   private PERSONAL_ORG_DESC: OrganizationDescription = {
     iconUrl: "",
     id: "personal",
     name: "Personal",
     slug: undefined,
   };
+
+  /**
+   * 개인 조직(로컬 프로필과 허브 프로필 포함)을 반환합니다.
+   * @returns 프로필과 현재 프로필이 포함된 개인 조직 객체
+   */
   private async getPersonalHubOrg() {
     const localProfiles = await this.getLocalProfiles({
       includeGlobal: true,
@@ -214,6 +278,10 @@ export class ConfigHandler {
     return this.rectifyProfilesForOrg(this.PERSONAL_ORG_DESC, profiles);
   }
 
+  /**
+   * 로컬 프로필만 포함된 로컬 조직을 반환합니다.
+   * @returns 로컬 프로필이 포함된 개인 조직 객체
+   */
   private async getLocalOrg() {
     const localProfiles = await this.getLocalProfiles({
       includeGlobal: true,
@@ -222,6 +290,12 @@ export class ConfigHandler {
     return this.rectifyProfilesForOrg(this.PERSONAL_ORG_DESC, localProfiles);
   }
 
+  /**
+   * 조직에 대한 프로필을 정리하여 현재 프로필을 올바르게 설정합니다.
+   * @param org - 조직 설명
+   * @param profiles - 프로필 라이프사이클 매니저 목록
+   * @returns 프로필과 현재 프로필이 포함된 조직 객체
+   */
   private async rectifyProfilesForOrg(
     org: OrganizationDescription,
     profiles: ProfileLifecycleManager[],
@@ -449,6 +523,10 @@ export class ConfigHandler {
     );
   }
 
+  /**
+   * 현재 프로필의 구성을 로드합니다.
+   * @returns
+   */
   async loadConfig(): Promise<ConfigResult<ContinueConfig>> {
     if (!this.currentProfile) {
       return {
@@ -467,6 +545,11 @@ export class ConfigHandler {
     return config;
   }
 
+  /**
+   * 주어진 프로필 ID에 대한 구성 프로필을 엽니다.
+   * @param profileId - 열 프로필 ID
+   * @returns
+   */
   async openConfigProfile(profileId?: string) {
     let openProfileId = profileId || this.currentProfile?.profileDescription.id;
     if (!openProfileId) {
@@ -484,15 +567,18 @@ export class ConfigHandler {
   }
 
   // Ancient method of adding custom providers through vs code
+  /**
+   * 추가 컨텍스트 제공자를 등록합니다.
+   */
   private additionalContextProviders: IContextProvider[] = [];
   registerCustomContextProvider(contextProvider: IContextProvider) {
     this.additionalContextProviders.push(contextProvider);
     void this.reloadConfig();
   }
   /**
-   * Retrieves the titles of additional context providers that are of type "submenu".
+   * "submenu" 타입의 추가 컨텍스트 제공자들의 제목을 반환합니다.
    *
-   * @returns {string[]} An array of titles of the additional context providers that have a description type of "submenu".
+   * @returns {string[]} "submenu" 타입의 추가 컨텍스트 제공자들의 제목 배열입니다.
    */
   getAdditionalSubmenuContextProviders(): string[] {
     return this.additionalContextProviders

@@ -42,6 +42,9 @@ export type SerializedOrgWithProfiles = OrganizationDescription & {
   selectedProfileId: string | null;
 };
 
+/**
+ * 프로필의 라이프사이클을 관리하며, 설정의 로딩과 저장을 담당합니다.
+ */
 export class ProfileLifecycleManager {
   private savedConfigResult: ConfigResult<ContinueConfig> | undefined;
   private savedBrowserConfigResult?: ConfigResult<BrowserSerializedContinueConfig>;
@@ -73,6 +76,12 @@ export class ProfileLifecycleManager {
     return this.loadConfig(additionalContextProviders, true);
   }
 
+  /**
+   * 현재 프로필의 설정을 로드합니다.
+   * @param additionalContextProviders 추가 컨텍스트 프로바이더
+   * @param forceReload 강제 리로드 여부
+   * @returns 설정 결과
+   */
   async loadConfig(
     additionalContextProviders: IContextProvider[],
     forceReload: boolean = false,
@@ -127,6 +136,12 @@ export class ProfileLifecycleManager {
     return this.savedConfigResult;
   }
 
+  /**
+   * 현재 프로필의 직렬화된 설정을 반환합니다.
+   * 이미 설정이 로드된 경우, 캐시된 결과를 반환합니다.
+   * @param additionalContextProviders 추가 컨텍스트 프로바이더
+   * @returns 직렬화된 설정 결과
+   */
   async getSerializedConfig(
     additionalContextProviders: IContextProvider[],
   ): Promise<ConfigResult<BrowserSerializedContinueConfig>> {
