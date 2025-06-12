@@ -33,6 +33,10 @@ import { ImportDefinitionsService } from "../ImportDefinitionsService";
 //   return result;
 // }
 
+/**
+ * RootPathContextService는 주어진 파일 경로와 AST 경로를 기반으로
+ * 루트 경로 컨텍스트에 대한 코드 스니펫을 가져오는 서비스입니다.
+ */
 export class RootPathContextService {
   private cache = new LRUCache<string, AutocompleteSnippetDeprecated[]>({
     max: 100,
@@ -43,10 +47,18 @@ export class RootPathContextService {
     private readonly ide: IDE,
   ) {}
 
+  /**
+   * 주어진 AST 노드의 ID를 반환합니다.
+   * 노드의 시작 인덱스를 사용하여 고유한 ID를 생성합니다.
+   */
   private static getNodeId(node: Parser.SyntaxNode): string {
     return `${node.startIndex}`;
   }
 
+  /**
+   * 사용할 노드 타입을 정의합니다.
+   * 이 타입들은 루트 경로 컨텍스트에서 스니펫을 가져오는 데 사용됩니다.
+   */
   private static TYPES_TO_USE = new Set([
     "arrow_function",
     "generator_function_declaration",
@@ -73,6 +85,10 @@ export class RootPathContextService {
       .digest("hex");
   }
 
+  /**
+   * 주어진 파일 경로와 AST 노드를 기반으로 스니펫을 가져옵니다.
+   * 노드의 타입에 따라 적절한 쿼리를 사용하여 스니펫을 검색합니다.
+   */
   private async getSnippetsForNode(
     filepath: string,
     node: Parser.SyntaxNode,
@@ -121,6 +137,10 @@ export class RootPathContextService {
     return snippets;
   }
 
+  /**
+   * 주어진 파일 경로와 끝 위치를 기반으로 스니펫을 가져옵니다.
+   * IDE의 gotoDefinition 메서드를 사용하여 정의를 찾고, 해당 정의의 내용을 읽어 스니펫을 생성합니다.
+   */
   private async getSnippets(
     filepath: string,
     endPosition: Parser.Point,
@@ -151,6 +171,10 @@ export class RootPathContextService {
     return newSnippets;
   }
 
+  /**
+   * 주어진 파일 경로와 AST 경로를 기반으로 코드 스니펫을 가져옵니다.
+   * AST 경로를 따라 필터링된 노드들을 순회하며 스니펫을 수집합니다.
+   */
   async getContextForPath(
     filepath: string,
     astPath: AstPath,
@@ -159,8 +183,8 @@ export class RootPathContextService {
     const snippets: AutocompleteCodeSnippet[] = [];
 
     let parentKey = filepath;
-    for (const astNode of astPath.filter((node) =>
-      RootPathContextService.TYPES_TO_USE.has(node.type),
+    for (const astNode of astPath.filter(
+      (node) => RootPathContextService.TYPES_TO_USE.has(node.type), //노드타입 필터링
     )) {
       const key = RootPathContextService.keyFromNode(parentKey, astNode);
       // const type = astNode.type;

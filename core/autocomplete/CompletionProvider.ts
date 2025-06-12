@@ -184,7 +184,7 @@ export class CompletionProvider {
       const startTime = Date.now();
       const options = await this._getAutocompleteOptions();
 
-      // Debounce
+      // Debounce(이벤트를 일정간격으로 중복수행 없이 처리하는 로직)
       if (await this.debouncer.delayAndShouldDebounce(options.debounceDelay)) {
         return undefined;
       }
@@ -205,10 +205,12 @@ export class CompletionProvider {
         this.ide,
       );
 
+      //자동완성 사용 여부 확인
       if (await shouldPrefilter(helper, this.ide)) {
         return undefined;
       }
 
+      //코드 스니핏 가져오기
       const [snippetPayload, workspaceDirs] = await Promise.all([
         getAllSnippets({
           helper,
@@ -219,13 +221,13 @@ export class CompletionProvider {
         this.ide.getWorkspaceDirs(),
       ]);
 
+      //프롬프트 생성
       const { prompt, prefix, suffix, completionOptions } = renderPrompt({
         snippetPayload,
         workspaceDirs,
         helper,
       });
 
-      // Completion
       let completion: string | undefined = "";
 
       const cache = await autocompleteCache;

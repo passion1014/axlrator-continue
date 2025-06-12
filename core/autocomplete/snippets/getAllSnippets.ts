@@ -175,7 +175,7 @@ const getDiffSnippets = async (
 };
 
 /**
- * 모든 스니펫을 가져옵니다.
+ * 모든 코드 스니펫을 가져옵니다.
  * - 루트 경로 스니펫
  * - import 정의 스니펫
  * - IDE 스니펫

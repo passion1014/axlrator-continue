@@ -4,16 +4,21 @@ import { CompletionOptions } from "../..";
 import { AutocompleteLanguageInfo } from "../constants/AutocompleteLanguageInfo";
 import { HelperVars } from "../util/HelperVars";
 
+import { getUriPathBasename } from "../../util/uri";
 import { SnippetPayload } from "../snippets";
 import {
   AutocompleteTemplate,
   getTemplateForModel,
 } from "./AutocompleteTemplate";
 import { getSnippets } from "./filtering";
-import { getUriPathBasename } from "../../util/uri";
 import { formatSnippets } from "./formatting";
 import { getStopTokens } from "./getStopTokens";
 
+/**
+ * 주어진 helper에 사용할 템플릿을 반환합니다.
+ * 옵션에 커스텀 템플릿이 제공된 경우 해당 템플릿을 사용합니다.
+ * 그렇지 않으면 모델에 대한 기본 템플릿을 반환합니다.
+ */
 function getTemplate(helper: HelperVars): AutocompleteTemplate {
   if (helper.options.template) {
     return {
@@ -25,6 +30,10 @@ function getTemplate(helper: HelperVars): AutocompleteTemplate {
   return getTemplateForModel(helper.modelName);
 }
 
+/**
+ * 주어진 템플릿 문자열을 Handlebars[자바스크립트 템플릿엔진]를 사용하여 렌더링합니다.
+ * prefix, suffix, filename, reponame, language 정보를 포함합니다.
+ */
 function renderStringTemplate(
   template: string,
   prefix: string,
@@ -45,6 +54,10 @@ function renderStringTemplate(
   });
 }
 
+/**
+ * 주어진 스니펫 페이로드와 워크스페이스 디렉토리, 헬퍼 변수를 사용하여 프롬프트를 렌더링합니다.
+ * prefix와 suffix를 조합하여 최종 프롬프트를 생성하고, 필요한 경우 completionOptions를 설정합니다.
+ */
 export function renderPrompt({
   snippetPayload,
   workspaceDirs,
@@ -66,8 +79,10 @@ export function renderPrompt({
     suffix = "\n";
   }
 
+  // If prefix is empty, use the full prefix
   const reponame = getUriPathBasename(workspaceDirs[0] ?? "myproject");
 
+  // Get the template for the model or custom template
   const { template, compilePrefixSuffix, completionOptions } =
     getTemplate(helper);
 

@@ -60,23 +60,23 @@ export async function shouldPrefilter(
   helper: HelperVars,
   ide: IDE,
 ): Promise<boolean> {
-  // Allow disabling autocomplete from config.json
+  // config.json에서 자동완성 비활성화 허용
   if (helper.options.disable) {
     return true;
   }
 
-  // Check whether we're in the continue config.json file
+  // continue config.json 파일에 있는지 확인
   if (helper.filepath === getConfigJsonPath()) {
     return true;
   }
 
-  // Check whether autocomplete is disabled for this file
+  // 이 파일에 대해 자동완성이 비활성화되어 있는지 확인
   const disableInFiles = [...(helper.options.disableInFiles ?? []), "*.prompt"];
   if (await isDisabledForFile(helper.filepath, disableInFiles, ide)) {
     return true;
   }
 
-  // Don't offer completions when we have no information (untitled file and no file contents)
+  // 정보가 없는 경우(untitled 파일이면서 파일 내용이 없는 경우)에는 자동완성을 제공하지 않습니다.
   if (
     helper.filepath.includes("Untitled") &&
     helper.fileContents.trim() === ""

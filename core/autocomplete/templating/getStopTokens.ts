@@ -13,6 +13,10 @@ const CODE_BLOCK_END = "```";
 // const multilineStops: string[] = [DOUBLE_NEWLINE, WINDOWS_DOUBLE_NEWLINE];
 const commonStops = [SRC_DIRECTORY, PYTHON_ENCODING, CODE_BLOCK_END];
 
+/**
+ * 주어진 completionOptions와 언어 정보, 모델 이름을 사용하여 중지 토큰을 반환합니다.
+ * stop 옵션이 제공된 경우 해당 옵션을 우선 사용하고, 그 외에 공통 중지 토큰과 언어별 키워드를 추가합니다.
+ */
 export function getStopTokens(
   completionOptions: Partial<CompletionOptions> | undefined,
   lang: AutocompleteLanguageInfo,
