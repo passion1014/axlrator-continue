@@ -174,3 +174,10 @@ on("history/delete", (msg) => {
 ```
 
 ---
+
+**CORE 디버깅**
+
+1. extension에서 USE_TCP를 true로 설정하여 IPC가 아닌 TCP를 통해 CORE 접속
+2. vscode에서 'Run and Debug' 사이드 바에 있는 버튼을 클릭
+3. selectbox에서 Core Binary 를 선택
+4. 시작버튼 클릭
